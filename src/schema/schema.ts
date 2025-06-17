@@ -1,0 +1,230 @@
+import {
+  text,
+  pgTable,
+  integer,
+  varchar,
+  boolean,
+  // numeric,
+  timestamp,
+  ReferenceConfig,
+  numeric,
+} from "drizzle-orm/pg-core";
+import { createId } from "@paralleldrive/cuid2";
+import { createInsertSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
+
+const timeStamps = {
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").$onUpdateFn(() => new Date()),
+};
+
+type UUIDOptions = Exclude<Parameters<typeof varchar>[1], undefined>;
+
+const uuid = (columnName?: string, options?: UUIDOptions) =>
+  varchar(columnName ?? "id", options).$defaultFn(() => createId());
+
+const foreignkeyRef = (
+  columnName: string,
+  refColumn: ReferenceConfig["ref"],
+  actions?: ReferenceConfig["actions"]
+) => varchar(columnName, { length: 128 }).references(refColumn, actions);
+
+// Schemas
+// export const users = pgTable("users", {
+//   id: text("id").primaryKey(),
+//   fullName: text("full_name").notNull(),
+//   email: text("email").notNull().unique(),
+//   emailVerified: boolean("email_verified")
+//     .$defaultFn(() => false)
+//     .notNull(),
+//   profilePic: text("profile_pic"),
+//   createdAt: timestamp("created_at")
+//     .$defaultFn(() => new Date())
+//     .notNull(),
+//   updatedAt: timestamp("updated_at")
+//     .$defaultFn(() => new Date())
+//     .notNull(),
+// });
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified")
+    .$defaultFn(() => false)
+    .notNull(),
+  profilePic: text("profile_pic"),
+  phone: integer("phone"),
+  branch: varchar("branch"),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  role: text("role").default("user"),
+  banned: boolean("banned"),
+  password: varchar("password"),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
+});
+
+export const session = pgTable("session", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expires_at").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  impersonatedBy: text("impersonated_by"),
+});
+
+export const account = pgTable("account", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+});
+
+export const verification = pgTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").$defaultFn(
+    () => /* @__PURE__ */ new Date()
+  ),
+  updatedAt: timestamp("updated_at").$defaultFn(
+    () => /* @__PURE__ */ new Date()
+  ),
+});
+
+export const products = pgTable("products", {
+  id: uuid().primaryKey(),
+  name: varchar("product").notNull(),
+  description: varchar("description").notNull(),
+  image: varchar("product_image"),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  instruction: varchar("instruction"),
+  categoryId: foreignkeyRef("category_id", () => category.id, {
+    onDelete: "set null",
+  }).notNull(),
+});
+
+export const category = pgTable("category", {
+  id: uuid("id").primaryKey(),
+  name: varchar("name").notNull(),
+  description: varchar("description").notNull(),
+  visibility: boolean("visibility").default(true),
+  ...timeStamps,
+});
+
+export const orders = pgTable("orders", {
+  id: uuid().primaryKey(),
+  status: varchar("status", { enum: ["pending", "completed"] }).default(
+    "pending"
+  ),
+  userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
+  cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
+  ...timestamp,
+});
+
+export const cart = pgTable("cart", {
+  id: uuid().primaryKey(),
+  userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
+  ...timeStamps,
+});
+
+export const cartItems = pgTable("cartItem", {
+  id: uuid().primaryKey(),
+  productId: foreignkeyRef("product_id", () => products.id, {
+    onDelete: "cascade",
+  }),
+  cartId: foreignkeyRef("cart_id", () => cart.id, {
+    onDelete: "cascade",
+  }),
+  quantity: integer("quantity").default(1).notNull(),
+});
+
+export const staff = pgTable("staff", {
+  id: uuid().primaryKey(),
+  firstName: varchar().notNull(),
+  lastName: varchar().notNull(),
+  phoneNumber: varchar().notNull(),
+  password: varchar().notNull(),
+  newPassword: varchar().notNull(),
+  selectBranch: varchar(),
+  userRole: varchar("userRole", {
+    enum: ["subAdmin", "Rider", "Invertory", "POS"],
+  }).notNull(),
+});
+
+// Throttle
+export const throttleinsight = pgTable("throttle_insight", {
+  waitTime: integer("wait_time").notNull(),
+  msBeforeNext: integer("ms_before_next").notNull(),
+  endPoint: varchar("end_point", { length: 225 }),
+  pointsAllotted: integer("allotted_points").notNull(),
+  consumedPoints: integer("consumed_points").notNull(),
+  remainingPoints: integer("remaining_points").notNull(),
+  key: varchar("key", { length: 225 }).primaryKey().notNull(),
+  isFirstInDuration: boolean("is_first_in_duration").notNull(),
+});
+
+//TODO Relations
+export const productsrelation = relations(products, ({ one }) => ({
+  category: one(category, {
+    fields: [products.categoryId],
+    references: [category.id],
+  }),
+}));
+
+export const categoryrelation = relations(category, ({ many }) => ({
+  products: many(products),
+}));
+
+export const ordersrelation = relations(orders, ({ one }) => ({
+  cart: one(cart, {
+    fields: [orders.cartId],
+    references: [cart.id],
+  }),
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
+  }),
+}));
+
+export const cartrelation = relations(cart, ({ many }) => ({
+  cartItems: many(cartItems),
+}));
+
+export const cartItemRelations = relations(cartItems, ({ one }) => ({
+  cart: one(cart, { fields: [cartItems.cartId], references: [cart.id] }),
+  product: one(products, {
+    fields: [cartItems.productId],
+    references: [products.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  orders: many(orders),
+}));
+
+// Zod validation
+export const productInsertSchema = createInsertSchema(products);
+export const categoryInsertSchema = createInsertSchema(category);
