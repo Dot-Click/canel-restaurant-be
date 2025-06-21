@@ -103,3 +103,28 @@ export const deleteFromCart = async (req: Request, res: Response) => {
       .json({ error: "Something went wrong." });
   }
 };
+
+export const fetchController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
+
+    let carts;
+
+    if (id) {
+      carts = await database.query.cart.findFirst({
+        where: (cart, { eq }) => eq(cart.id, id),
+      });
+    } else {
+      carts = await database.query.cart.findMany();
+    }
+
+    res.status(status.OK).json({
+      message: "Carts fetched successfully",
+      data: carts,
+    });
+  } catch (error) {
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ error: "Something went wrong." });
+  }
+};

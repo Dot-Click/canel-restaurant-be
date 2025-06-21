@@ -59,7 +59,6 @@ app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
 
 app.use(throttle("default"));
-app.use(express.json());
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);
 app.use("/api/addon-category/", addonRoutes);

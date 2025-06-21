@@ -119,10 +119,13 @@ export const fetchAddonItem = async (req: Request, res: Response) => {
 
     if (id) {
       addonItem = await database.query.addonItem.findFirst({
+        with: { addon: true },
         where: (addonItem, { eq }) => eq(addonItem.id, id),
       });
     } else {
-      addonItem = await database.query.addonItem.findMany();
+      addonItem = await database.query.addonItem.findMany({
+        with: { addon: true },
+      });
     }
 
     res.status(status.OK).json({

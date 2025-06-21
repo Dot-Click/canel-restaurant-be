@@ -134,7 +134,7 @@ export const products = pgTable("products", {
   ),
   discount: integer("discount"),
   categoryId: foreignkeyRef("category_id", () => category.id, {
-    onDelete: "set null",
+    onDelete: "cascade",
   }).notNull(),
   addonId: foreignkeyRef("addon_id", () => addon.id, {
     onDelete: "no action",
@@ -218,14 +218,19 @@ export const cartItemRelations = relations(cartItems, ({ one }) => ({
 export const addonItem = pgTable("addonItem", {
   id: uuid().primaryKey(),
   name: varchar("name").notNull(),
+  description: varchar("description").notNull(),
   price: numeric("price", { precision: 10, scale: 2 })
     .notNull()
     .default("0.00"),
+  size: varchar("size", { enum: ["larger", "medium", "small"] }).default(
+    "medium"
+  ),
   discount: integer("discount"),
   image: varchar("addon_image"),
   addonId: foreignkeyRef("addon_id", () => addon.id, {
     onDelete: "cascade",
   }).notNull(),
+  ...timeStamps,
 });
 
 export const addon = pgTable("addon", {
@@ -259,18 +264,21 @@ export const throttleinsight = pgTable("throttle_insight", {
   isFirstInDuration: boolean("is_first_in_duration").notNull(),
 });
 
-// export const staff = pgTable("staff", {
-//   id: uuid().primaryKey(),
-//   firstName: varchar().notNull(),
-//   lastName: varchar().notNull(),
-//   phoneNumber: varchar().notNull(),
-//   password: varchar().notNull(),
-//   newPassword: varchar().notNull(),
-//   selectBranch: varchar(),
-//   userRole: varchar("userRole", {
-//     enum: ["subAdmin", "Rider", "Invertory", "POS"],
-//   }).notNull(),
-// });
+// TODO branch
+export const branch = pgTable("branch", {
+  id: uuid().primaryKey(),
+  name: varchar("name").notNull(),
+  address: varchar("address").notNull(),
+  location: varchar("location"),
+  phoneNumber: varchar("phon_number"),
+  operatingHours: varchar("operating_hours"),
+  manager: varchar("manager").notNull(),
+  city: varchar("city"),
+  status: varchar("status", {
+    enum: ["open", "closed"],
+  }).default("open"),
+  ...timeStamps,
+});
 
 // Zod validation
 // export const productInsertSchema = createInsertSchema(products);
@@ -293,3 +301,4 @@ export const addonInsertSchema = createInsertSchema(addon);
 
 export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
+export const branchInsertSchema = createInsertSchema(branch);
