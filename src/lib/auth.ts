@@ -2,8 +2,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { database } from "../configs/connection.config";
 import { betterAuth } from "better-auth";
 import { env } from "@/utils/env.utils";
-import { admin } from "better-auth/plugins";
+import { admin as adminPlugin } from "better-auth/plugins";
 import * as schema from "@/schema/schema";
+import { signupTemplate } from "@/utils/brevo";
+import { ac, admin, manager, rider, subadmin } from "./permissions";
 
 export const auth = betterAuth({
   database: drizzleAdapter(database, {
@@ -29,12 +31,26 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
-  // emailVerification: {
-  //   onEmailVerification: async () => {
-  //     // user.id
-  //   },
-  // },
-  plugins: [admin()],
+  emailVerification: {
+    enabled: true,
+    sendVerificationEmail: async (data) => {
+      signupTemplate({
+        userName: data.user.name,
+        verificationCode: data.token,
+      });
+    },
+  },
+  plugins: [
+    adminPlugin({
+      ac,
+      roles: {
+        admin,
+        manager,
+        subadmin,
+        rider,
+      },
+    }),
+  ],
   user: {
     modelName: "users",
     fields: {

@@ -6,6 +6,7 @@ import { productInsertSchema, products } from "@/schema/schema";
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
+import { eq } from "drizzle-orm";
 
 interface FormData {
   name: string;
@@ -17,7 +18,6 @@ interface FormData {
 export const insertController = async (req: Request, res: Response) => {
   try {
     const form = formidable();
-
     // step 1 parse form
     const [formData, files] = await form.parse<any, "productImage">(req);
     const productImage = files.productImage?.[0];
@@ -27,6 +27,7 @@ export const insertController = async (req: Request, res: Response) => {
 
     // step 3 validate fields
     const { data, error } = productInsertSchema.safeParse(fields);
+    console.log("This is fields", data);
 
     if (!data) {
       logger.error("Validation failed", error);
@@ -71,15 +72,121 @@ export const insertController = async (req: Request, res: Response) => {
         price: fields.price!,
         image: cloudinaryResponse.secure_url,
         categoryId: fields.categoryId!,
+        ...fields,
       })
       .returning();
-
+    console.log("this is inserted product", insertedProduct);
     if (insertedProduct[0]) {
       return res.status(status.CREATED).json({
         message: "Product inserted successfully",
         data: insertedProduct[0],
       });
     }
+  } catch (error) {
+    logger.error(error);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: (error as Error).message });
+  }
+};
+
+export const deleteController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
+
+    if (!id) {
+      return res
+        .status(status.UNPROCESSABLE_ENTITY)
+        .json({ message: "Product ID is required" });
+    }
+
+    const productsToDelete = await database
+      .select({
+        image: products.image,
+      })
+      .from(products)
+      .where(eq(products.id, id));
+
+    const product = productsToDelete[0];
+
+    if (!product) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Product not found" });
+    }
+
+    if (product.image) {
+      const publicId = product.image.split("/").pop()?.split(".")[0];
+      const folder = "products";
+
+      if (publicId) {
+        await cloudinary.uploader.destroy(`${folder}/${publicId}`);
+      }
+    }
+
+    const deletedProduct = await database
+      .delete(products)
+      .where(eq(products.id, id))
+      .returning();
+
+    if (deletedProduct.length === 0) {
+      return res.status(status.NOT_FOUND).json({
+        message: "Product not found, it may have already been deleted.",
+      });
+    }
+
+    res.status(status.OK).json({
+      message: "Product deleted successfully",
+      data: deletedProduct[0],
+    });
+  } catch (error) {
+    logger.error(error);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: (error as Error).message });
+  }
+};
+
+export const fetchController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    let productData;
+
+    if (id) {
+      // Fetch a single product
+      productData = await database.query.products.findFirst({
+        // Define the 'with' clause inline here
+        with: {
+          category: true, // TypeScript now correctly infers this as the literal 'true'
+        },
+        where: eq(products.id, id),
+      });
+    } else {
+      // Fetch all products
+      productData = await database.query.products.findMany({
+        // Define the 'with' clause inline here as well
+        with: {
+          category: true,
+        },
+        orderBy: (products, { desc }) => [desc(products.createdAt)],
+      });
+    }
+
+    if (
+      !productData ||
+      (Array.isArray(productData) && productData.length === 0)
+    ) {
+      return res.status(status.OK).json({
+        message: "No products found",
+        data: Array.isArray(productData) ? [] : null, // Ensure consistent response type
+      });
+    }
+
+    res.status(status.OK).json({
+      message: "Product(s) fetched successfully",
+      data: productData,
+    });
   } catch (error) {
     logger.error(error);
     res

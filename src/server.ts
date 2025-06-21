@@ -22,6 +22,8 @@ import morgan from "morgan";
 import helmet from "helmet";
 import { categoryRoutes } from "./routes/category.route";
 import { cartRoutes } from "./routes/cart.route";
+import { addonItemsRoutes } from "./routes/addonitem.route";
+import { addonRoutes } from "./routes/addon.route";
 config();
 
 const app = express();
@@ -49,6 +51,7 @@ app.use(assignSocketToReqIO(io));
 app.use(express.static("dist"));
 // app.use(sessionMiddleware);
 app.use(cors(corsOptions));
+app.use(express.json());
 app.use(cookieParser());
 io.use(authorizeUser);
 
@@ -59,7 +62,9 @@ app.use(throttle("default"));
 app.use(express.json());
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);
+app.use("/api/addon-category/", addonRoutes);
 app.use("/api/cart/", cartRoutes);
+app.use("/api/addon/", addonItemsRoutes);
 app.use(unknownRoutes);
 
 httpServer.listen(port as number, () => {

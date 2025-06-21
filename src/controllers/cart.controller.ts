@@ -56,3 +56,50 @@ export const addToCart = async (req: Request, res: Response) => {
       .json({ error: "Something went wrong." });
   }
 };
+
+export const deleteFromCart = async (req: Request, res: Response) => {
+  try {
+    const { userId, productId } = req.body;
+
+    if (!userId || !productId) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Both userId and productId are required." });
+    }
+
+    const [userCart] = await database
+      .select()
+      .from(cart)
+      .where(eq(cart.userId, userId));
+
+    if (!userCart) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Cart not found for this user." });
+    }
+    const deletedItems = await database
+      .delete(cartItems)
+      .where(
+        and(
+          eq(cartItems.cartId, userCart.id),
+          eq(cartItems.productId, productId)
+        )
+      )
+      .returning();
+
+    if (deletedItems.length === 0) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Item not found in cart." });
+    }
+
+    return res.status(status.OK).json({
+      message: "Item removed from cart successfully.",
+      data: deletedItems[0],
+    });
+  } catch (error) {
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ error: "Something went wrong." });
+  }
+};

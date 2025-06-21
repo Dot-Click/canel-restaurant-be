@@ -1,8 +1,14 @@
-import { insertController } from "@/controllers/product.controller";
+import {
+  deleteController,
+  fetchController,
+  insertController,
+} from "@/controllers/product.controller";
 import { Router } from "express";
 
 const productRoutes = Router();
 
-productRoutes.post("/create", insertController);
+productRoutes.post("/product-create", insertController);
+productRoutes.get("/product-fetch", fetchController);
+productRoutes.post("/product-delete", deleteController);
 
 export { productRoutes };

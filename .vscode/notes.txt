@@ -24,11 +24,16 @@ High Traffic APIs:
 
 
 ================================ By Farasat ======================================
-Getting this error when hitting sign up request. (created a test file on frontend to test the api, api is hitting according to BE logs)
-Sign-up error: { status: 0, statusText: '' }
+Create add food (done)
+map food (DONE)
+map users
+create add branch
+map branch
+create add to cart
 
 
-When I ran npm run dbpush. Tables aren't appearing on the website(Neon wali), Only folders appear. 
 
+ON BACKEND
+---- create branch management
 
 

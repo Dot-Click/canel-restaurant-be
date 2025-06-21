@@ -12,6 +12,7 @@ import {
 import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
+import { z } from "zod";
 
 const timeStamps = {
   createdAt: timestamp("created_at").defaultNow(),
@@ -46,6 +47,7 @@ const foreignkeyRef = (
 //     .notNull(),
 // });
 
+// TODO Schema & Relations of Users
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   fullName: text("full_name").notNull(),
@@ -68,6 +70,10 @@ export const users = pgTable("users", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
 });
+
+export const usersRelations = relations(users, ({ many }) => ({
+  orders: many(orders),
+}));
 
 export const session = pgTable("session", {
   id: text("id").primaryKey(),
@@ -114,6 +120,7 @@ export const verification = pgTable("verification", {
   ),
 });
 
+// TODO Schema & Relations of Products
 export const products = pgTable("products", {
   id: uuid().primaryKey(),
   name: varchar("product").notNull(),
@@ -121,11 +128,28 @@ export const products = pgTable("products", {
   image: varchar("product_image"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   instruction: varchar("instruction"),
+  availability: boolean("availability").default(true),
+  size: varchar("size", { enum: ["large", "medium", "small"] }).default(
+    "medium"
+  ),
+  discount: integer("discount"),
   categoryId: foreignkeyRef("category_id", () => category.id, {
     onDelete: "set null",
   }).notNull(),
+  addonId: foreignkeyRef("addon_id", () => addon.id, {
+    onDelete: "no action",
+  }),
+  ...timeStamps,
 });
 
+export const productsrelation = relations(products, ({ one }) => ({
+  category: one(category, {
+    fields: [products.categoryId],
+    references: [category.id],
+  }),
+}));
+
+// TODO Schema & Relations of Category
 export const category = pgTable("category", {
   id: uuid("id").primaryKey(),
   name: varchar("name").notNull(),
@@ -134,6 +158,11 @@ export const category = pgTable("category", {
   ...timeStamps,
 });
 
+export const categoryrelation = relations(category, ({ many }) => ({
+  products: many(products),
+}));
+
+// TODO Schema & Relations of Orders
 export const orders = pgTable("orders", {
   id: uuid().primaryKey(),
   status: varchar("status", { enum: ["pending", "completed"] }).default(
@@ -144,6 +173,18 @@ export const orders = pgTable("orders", {
   ...timestamp,
 });
 
+export const ordersrelation = relations(orders, ({ one }) => ({
+  cart: one(cart, {
+    fields: [orders.cartId],
+    references: [cart.id],
+  }),
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
+  }),
+}));
+
+// TODO Schema & Relations of Carts
 export const cart = pgTable("cart", {
   id: uuid().primaryKey(),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
@@ -161,18 +202,50 @@ export const cartItems = pgTable("cartItem", {
   quantity: integer("quantity").default(1).notNull(),
 });
 
-export const staff = pgTable("staff", {
+export const cartrelation = relations(cart, ({ many }) => ({
+  cartItems: many(cartItems),
+}));
+
+export const cartItemRelations = relations(cartItems, ({ one }) => ({
+  cart: one(cart, { fields: [cartItems.cartId], references: [cart.id] }),
+  product: one(products, {
+    fields: [cartItems.productId],
+    references: [products.id],
+  }),
+}));
+
+// TODO Schema & Relations of Addon
+export const addonItem = pgTable("addonItem", {
   id: uuid().primaryKey(),
-  firstName: varchar().notNull(),
-  lastName: varchar().notNull(),
-  phoneNumber: varchar().notNull(),
-  password: varchar().notNull(),
-  newPassword: varchar().notNull(),
-  selectBranch: varchar(),
-  userRole: varchar("userRole", {
-    enum: ["subAdmin", "Rider", "Invertory", "POS"],
+  name: varchar("name").notNull(),
+  price: numeric("price", { precision: 10, scale: 2 })
+    .notNull()
+    .default("0.00"),
+  discount: integer("discount"),
+  image: varchar("addon_image"),
+  addonId: foreignkeyRef("addon_id", () => addon.id, {
+    onDelete: "cascade",
   }).notNull(),
 });
+
+export const addon = pgTable("addon", {
+  id: uuid().primaryKey(),
+  name: varchar("name").notNull(),
+  description: varchar("description").notNull(),
+  ...timeStamps,
+});
+
+export const addonItemRelation = relations(addonItem, ({ one }) => ({
+  addon: one(addon, {
+    fields: [addonItem.addonId],
+    references: [addon.id],
+  }),
+}));
+
+// An addon (group) has many addonItems.
+export const addonRelation = relations(addon, ({ many }) => ({
+  addonItems: many(addonItem),
+}));
 
 // Throttle
 export const throttleinsight = pgTable("throttle_insight", {
@@ -186,45 +259,37 @@ export const throttleinsight = pgTable("throttle_insight", {
   isFirstInDuration: boolean("is_first_in_duration").notNull(),
 });
 
-//TODO Relations
-export const productsrelation = relations(products, ({ one }) => ({
-  category: one(category, {
-    fields: [products.categoryId],
-    references: [category.id],
-  }),
-}));
-
-export const categoryrelation = relations(category, ({ many }) => ({
-  products: many(products),
-}));
-
-export const ordersrelation = relations(orders, ({ one }) => ({
-  cart: one(cart, {
-    fields: [orders.cartId],
-    references: [cart.id],
-  }),
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-}));
-
-export const cartrelation = relations(cart, ({ many }) => ({
-  cartItems: many(cartItems),
-}));
-
-export const cartItemRelations = relations(cartItems, ({ one }) => ({
-  cart: one(cart, { fields: [cartItems.cartId], references: [cart.id] }),
-  product: one(products, {
-    fields: [cartItems.productId],
-    references: [products.id],
-  }),
-}));
-
-export const usersRelations = relations(users, ({ many }) => ({
-  orders: many(orders),
-}));
+// export const staff = pgTable("staff", {
+//   id: uuid().primaryKey(),
+//   firstName: varchar().notNull(),
+//   lastName: varchar().notNull(),
+//   phoneNumber: varchar().notNull(),
+//   password: varchar().notNull(),
+//   newPassword: varchar().notNull(),
+//   selectBranch: varchar(),
+//   userRole: varchar("userRole", {
+//     enum: ["subAdmin", "Rider", "Invertory", "POS"],
+//   }).notNull(),
+// });
 
 // Zod validation
-export const productInsertSchema = createInsertSchema(products);
+// export const productInsertSchema = createInsertSchema(products);
+export const productInsertSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(1, "Description is required"),
+  categoryId: z.string().min(1, "Category is required"),
+  price: z.coerce.number().positive("Price must be a positive number"),
+
+  discount: z.coerce.number().min(0, "Discount cannot be negative").optional(),
+});
+export const addonItemInsertSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(1, "Description is required"),
+  addonId: z.string().min(1, "Addon is required"),
+  price: z.coerce.number().positive("Price must be a positive number"),
+});
+
+export const addonInsertSchema = createInsertSchema(addon);
+
 export const categoryInsertSchema = createInsertSchema(category);
+export const cartInsertSchema = createInsertSchema(cart);
