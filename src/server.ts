@@ -51,12 +51,12 @@ app.use(assignSocketToReqIO(io));
 app.use(express.static("dist"));
 // app.use(sessionMiddleware);
 app.use(cors(corsOptions));
-app.use(express.json());
 app.use(cookieParser());
 io.use(authorizeUser);
 
 app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
+app.use(express.json());
 
 app.use(throttle("default"));
 app.use("/api/product/", productRoutes);

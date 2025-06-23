@@ -6,9 +6,18 @@ import status from "http-status";
 
 export const addToCart = async (req: Request, res: Response) => {
   try {
-    const { userId, productId, quantity = 1 } = req.body;
+    const userId = req.user!.id;
 
-    // Find or create a cart for the user
+    const { productId, quantity = 1 } = req.body;
+
+    console.log(req.body);
+
+    if (!productId) {
+      res
+        .status(status.UNPROCESSABLE_ENTITY)
+        .json({ message: "Product Id is required" });
+    }
+
     let [existingCart] = await database
       .select()
       .from(cart)
@@ -24,7 +33,6 @@ export const addToCart = async (req: Request, res: Response) => {
 
     const cartId = existingCart.id;
 
-    // Check if item already exists in cart
     const [existingItem] = await database
       .select()
       .from(cartItems)
@@ -59,9 +67,11 @@ export const addToCart = async (req: Request, res: Response) => {
 
 export const deleteFromCart = async (req: Request, res: Response) => {
   try {
-    const { userId, productId } = req.body;
+    const userId = req.user!.id;
 
-    if (!userId || !productId) {
+    const { id } = req.params;
+    console.log(req.params);
+    if (!userId || !id) {
       return res
         .status(status.BAD_REQUEST)
         .json({ message: "Both userId and productId are required." });
@@ -80,10 +90,7 @@ export const deleteFromCart = async (req: Request, res: Response) => {
     const deletedItems = await database
       .delete(cartItems)
       .where(
-        and(
-          eq(cartItems.cartId, userCart.id),
-          eq(cartItems.productId, productId)
-        )
+        and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, id))
       )
       .returning();
 
@@ -106,23 +113,29 @@ export const deleteFromCart = async (req: Request, res: Response) => {
 
 export const fetchController = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const userId = req.user!.id;
 
-    let carts;
+    const userCartWithItems = await database.query.cart.findFirst({
+      where: (cart, { eq }) => eq(cart.userId, userId),
+      with: {
+        cartItems: {
+          with: {
+            product: true,
+          },
+        },
+      },
+    });
 
-    if (id) {
-      carts = await database.query.cart.findFirst({
-        where: (cart, { eq }) => eq(cart.id, id),
-      });
-    } else {
-      carts = await database.query.cart.findMany();
-    }
+    const itemsToReturn = userCartWithItems?.cartItems || [];
 
-    res.status(status.OK).json({
-      message: "Carts fetched successfully",
-      data: carts,
+    console.log(itemsToReturn);
+    // 4. Send the array of items back to the frontend.
+    return res.status(status.OK).json({
+      message: "Cart fetched successfully",
+      data: itemsToReturn,
     });
   } catch (error) {
+    console.error("Fetch cart error:", error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ error: "Something went wrong." });

@@ -168,6 +168,8 @@ export const orders = pgTable("orders", {
   status: varchar("status", { enum: ["pending", "completed"] }).default(
     "pending"
   ),
+  location: varchar("location"),
+  type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
   cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
   ...timestamp,
