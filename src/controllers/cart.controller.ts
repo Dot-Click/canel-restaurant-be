@@ -128,7 +128,6 @@ export const fetchController = async (req: Request, res: Response) => {
 
     const itemsToReturn = userCartWithItems?.cartItems || [];
 
-    console.log(itemsToReturn);
     // 4. Send the array of items back to the frontend.
     return res.status(status.OK).json({
       message: "Cart fetched successfully",

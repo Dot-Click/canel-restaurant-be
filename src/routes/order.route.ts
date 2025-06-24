@@ -1,0 +1,17 @@
+import {
+  deleteController,
+  fetchController,
+  getOrderByIdController,
+  insertController,
+} from "@/controllers/order.controller";
+import { protectRoute } from "@/middlewares/auth.middleware";
+import { Router } from "express";
+
+const orderRoutes = Router();
+
+orderRoutes.post("/create-order", protectRoute, insertController);
+orderRoutes.post("/delete-order/:id", protectRoute, deleteController);
+orderRoutes.get("/fetch-order", protectRoute, fetchController);
+orderRoutes.get("/user-orders/:id", protectRoute, getOrderByIdController);
+
+export { orderRoutes };

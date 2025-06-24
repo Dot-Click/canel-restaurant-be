@@ -168,21 +168,49 @@ export const orders = pgTable("orders", {
   status: varchar("status", { enum: ["pending", "completed"] }).default(
     "pending"
   ),
-  location: varchar("location"),
+  location: varchar("location").notNull(),
+  name: varchar("name").notNull(),
+  phoneNumber: varchar("phone_number").notNull(),
+  rif: varchar("rif"),
+  nearestLandmark: varchar("nearest_landmark"),
+  email: varchar("email"),
+  changeRequest: varchar("change_request"),
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
-  cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
+  // cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
   ...timestamp,
 });
 
-export const ordersrelation = relations(orders, ({ one }) => ({
-  cart: one(cart, {
-    fields: [orders.cartId],
-    references: [cart.id],
+export const orderItems = pgTable("orderItems", {
+  id: uuid().primaryKey(),
+  orderId: foreignkeyRef("order_id", () => orders.id, {
+    onDelete: "cascade",
+  }).notNull(),
+  productId: foreignkeyRef("product_id", () => products.id, {
+    onDelete: "set null",
   }),
+  quantity: integer("quantity").notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  productName: varchar("product_name").notNull(),
+});
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  // The old 'cart' relation is gone. Now an order has many 'items'.
+  orderItems: many(orderItems),
   user: one(users, {
     fields: [orders.userId],
     references: [users.id],
+  }),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+  product: one(products, {
+    fields: [orderItems.productId],
+    references: [products.id],
   }),
 }));
 
@@ -300,7 +328,7 @@ export const addonItemInsertSchema = z.object({
 });
 
 export const addonInsertSchema = createInsertSchema(addon);
-
 export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
 export const branchInsertSchema = createInsertSchema(branch);
+export const orderInsertSchema = createInsertSchema(orders);

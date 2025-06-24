@@ -24,6 +24,7 @@ import { categoryRoutes } from "./routes/category.route";
 import { cartRoutes } from "./routes/cart.route";
 import { addonItemsRoutes } from "./routes/addonitem.route";
 import { addonRoutes } from "./routes/addon.route";
+import { orderRoutes } from "./routes/order.route";
 config();
 
 const app = express();
@@ -57,10 +58,11 @@ io.use(authorizeUser);
 app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
 app.use(express.json());
-
 app.use(throttle("default"));
+
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);
+app.use("/api/order/", orderRoutes);
 app.use("/api/addon-category/", addonRoutes);
 app.use("/api/cart/", cartRoutes);
 app.use("/api/addon/", addonItemsRoutes);
