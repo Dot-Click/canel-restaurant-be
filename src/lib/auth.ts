@@ -82,8 +82,8 @@ export const auth = betterAuth({
           await brevoTransactionApi.sendTransacEmail({
             subject: "Welcome! Please Verify Your Email",
             htmlContent: signupTemplate({
-              verificationCode: otp, // ✅ Use otp directly
-              userName: email.split("@")[0], // ✅ Dummy name from email
+              verificationCode: otp,
+              userName: email.split("@")[0],
             }),
             sender: {
               email: "farasatkhan687@gmail.com",

@@ -2,11 +2,16 @@ import { status } from "http-status";
 import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
-import { productInsertSchema, products } from "@/schema/schema";
+import {
+  branch,
+  productBranches,
+  productInsertSchema,
+  products,
+} from "@/schema/schema";
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 
 interface FormData {
   name: string;
@@ -192,5 +197,85 @@ export const fetchController = async (req: Request, res: Response) => {
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
+  }
+};
+
+export const assignProductToBranch = async (req: Request, res: Response) => {
+  const { productId, branchId } = req.body;
+
+  if (!productId || !branchId) {
+    return res.status(400).json({ error: "Missing productId or branchId" });
+  }
+
+  try {
+    await database.insert(productBranches).values({ productId, branchId });
+    return res.status(201).json({ message: "Product assigned to branch." });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ error: "Server error assigning product to branch." });
+  }
+};
+
+export const removeProductFromBranch = async (req: Request, res: Response) => {
+  const { productId, branchId } = req.body;
+
+  try {
+    await database
+      .delete(productBranches)
+      .where(
+        and(
+          eq(productBranches.productId, productId),
+          eq(productBranches.branchId, branchId)
+        )
+      );
+
+    return res.status(200).json({ message: "Product removed from branch." });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ error: "Failed to remove product from branch." });
+  }
+};
+
+export const getProductsForBranch = async (req: Request, res: Response) => {
+  const { branchId } = req.params;
+
+  try {
+    const branchProducts = await database
+      .select()
+      .from(products)
+      .leftJoin(productBranches, eq(products.id, productBranches.productId))
+      .where(
+        or(eq(products.isGlobal, true), eq(productBranches.branchId, branchId))
+      );
+
+    return res.status(200).json(branchProducts);
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch products for branch." });
+  }
+};
+
+export const getBranchesForProduct = async (req: Request, res: Response) => {
+  const { productId } = req.params;
+
+  try {
+    const result = await database
+      .select()
+      .from(productBranches)
+      .innerJoin(branch, eq(productBranches.branchId, branch.id))
+      .where(eq(productBranches.productId, productId));
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch branches for product." });
   }
 };

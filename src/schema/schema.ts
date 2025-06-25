@@ -133,6 +133,7 @@ export const products = pgTable("products", {
     "medium"
   ),
   discount: integer("discount"),
+  isGlobal: boolean("is_global").default(false),
   categoryId: foreignkeyRef("category_id", () => category.id, {
     onDelete: "cascade",
   }).notNull(),
@@ -142,7 +143,18 @@ export const products = pgTable("products", {
   ...timeStamps,
 });
 
-export const productsrelation = relations(products, ({ one }) => ({
+export const productBranches = pgTable("product_branches", {
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+
+  branchId: uuid("branch_id")
+    .notNull()
+    .references(() => branch.id, { onDelete: "cascade" }),
+});
+
+export const productsrelation = relations(products, ({ one, many }) => ({
+  branches: many(productBranches),
   category: one(category, {
     fields: [products.categoryId],
     references: [category.id],
@@ -309,6 +321,10 @@ export const branch = pgTable("branch", {
   }).default("open"),
   ...timeStamps,
 });
+
+export const branchRelations = relations(branch, ({ many }) => ({
+  products: many(productBranches),
+}));
 
 // Zod validation
 // export const productInsertSchema = createInsertSchema(products);
