@@ -38,6 +38,7 @@ const corsOptions: CorsOptions = {
   credentials: true,
 };
 
+app.use(cors(corsOptions));
 app.use((req, _res, next) => {
   console.log(
     `[INCOMING REQUEST]: Method: ${req.method}, URL: ${req.originalUrl}`
@@ -60,7 +61,6 @@ app.use(express.static("public"));
 app.use(assignSocketToReqIO(io));
 app.use(express.static("dist"));
 // app.use(sessionMiddleware);
-app.use(cors(corsOptions));
 app.use(cookieParser());
 io.use(authorizeUser);
 
