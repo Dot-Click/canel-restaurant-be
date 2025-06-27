@@ -38,7 +38,7 @@ const corsOptions: CorsOptions = {
   credentials: true,
 };
 
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(
     `[INCOMING REQUEST]: Method: ${req.method}, URL: ${req.originalUrl}`
   );
