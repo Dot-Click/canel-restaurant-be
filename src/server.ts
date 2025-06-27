@@ -37,6 +37,14 @@ const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_DOMAIN,
   credentials: true,
 };
+
+app.use((req, res, next) => {
+  console.log(
+    `[INCOMING REQUEST]: Method: ${req.method}, URL: ${req.originalUrl}`
+  );
+  next(); // Pass the request to the next middleware
+});
+
 const io = new Server(httpServer, {
   cors: corsOptions,
 });
