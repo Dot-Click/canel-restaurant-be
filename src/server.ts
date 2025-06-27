@@ -35,7 +35,8 @@ const port = Number(process.env.PORT) || 3000;
 const isProduction = app.get("env") === "production";
 
 const corsOptions: CorsOptions = {
-  origin: process.env.FRONTEND_DOMAIN,
+  origin: "https://canel-restaurant-fe.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
 };
 
