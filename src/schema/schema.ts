@@ -8,6 +8,7 @@ import {
   timestamp,
   ReferenceConfig,
   numeric,
+  json,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
@@ -57,7 +58,6 @@ export const users = pgTable("users", {
     .notNull(),
   profilePic: text("profile_pic"),
   phone: integer("phone"),
-  branch: varchar("branch"),
   createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
@@ -71,8 +71,12 @@ export const users = pgTable("users", {
   banExpires: timestamp("ban_expires"),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   orders: many(orders),
+  managedBranch: one(branch, {
+    fields: [users.id],
+    references: [branch.manager],
+  }),
 }));
 
 export const session = pgTable("session", {
@@ -133,28 +137,23 @@ export const products = pgTable("products", {
     "medium"
   ),
   discount: integer("discount"),
-  isGlobal: boolean("is_global").default(false),
   categoryId: foreignkeyRef("category_id", () => category.id, {
     onDelete: "cascade",
   }).notNull(),
   addonId: foreignkeyRef("addon_id", () => addon.id, {
     onDelete: "no action",
   }),
+  branchId: uuid("branch_id").references(() => branch.id, {
+    onDelete: "cascade",
+  }), // utility foregn key
   ...timeStamps,
 });
 
-export const productBranches = pgTable("product_branches", {
-  productId: uuid("product_id")
-    .notNull()
-    .references(() => products.id, { onDelete: "cascade" }),
-
-  branchId: uuid("branch_id")
-    .notNull()
-    .references(() => branch.id, { onDelete: "cascade" }),
-});
-
-export const productsrelation = relations(products, ({ one, many }) => ({
-  branches: many(productBranches),
+export const productsrelation = relations(products, ({ one }) => ({
+  branch: one(branch, {
+    fields: [products.branchId],
+    references: [branch.id],
+  }),
   category: one(category, {
     fields: [products.categoryId],
     references: [category.id],
@@ -314,20 +313,46 @@ export const branch = pgTable("branch", {
   location: varchar("location"),
   phoneNumber: varchar("phon_number"),
   operatingHours: varchar("operating_hours"),
-  manager: varchar("manager").notNull(),
-  city: varchar("city"),
+  manager: foreignkeyRef("manager_id", () => users.id, {
+    onDelete: "set null",
+  }).notNull(), // foregn key reference
+  cityId: foreignkeyRef("city_id", () => city.id, {
+    onDelete: "set null",
+  }).notNull(), //separate city table
+  // state: varchar("state"),
+  areas: json("areas").$type<string[]>(),
   status: varchar("status", {
     enum: ["open", "closed"],
   }).default("open"),
   ...timeStamps,
 });
 
-export const branchRelations = relations(branch, ({ many }) => ({
-  products: many(productBranches),
+export const city = pgTable("city", {
+  id: uuid().primaryKey(),
+  name: varchar("name").notNull(),
+});
+
+export const branchRelations = relations(branch, ({ many, one }) => ({
+  products: many(products),
+  manager: one(users, {
+    fields: [branch.manager],
+    references: [users.id],
+  }),
+  // A branch is located in ONE city
+  city: one(city, {
+    fields: [branch.cityId],
+    references: [city.id],
+  }),
 }));
 
-// Zod validation
+export const cityRelations = relations(city, ({ many }) => ({
+  // A city can have MANY branches
+  branches: many(branch),
+}));
+
 // export const productInsertSchema = createInsertSchema(products);
+
+// Zod validation
 export const productInsertSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),
@@ -342,7 +367,6 @@ export const addonItemInsertSchema = z.object({
   addonId: z.string().min(1, "Addon is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
 });
-
 export const addonInsertSchema = createInsertSchema(addon);
 export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
