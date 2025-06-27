@@ -41,7 +41,7 @@ export const auth = betterAuth({
     enabled: true,
     async sendVerificationEmail({ token, user }) {
       try {
-        console.log(user),
+        console.log("EMail verification has been hit:::"),
           await brevoTransactionApi.sendTransacEmail({
             subject: "Welcome! Please Verify Your Email",
             // Use the correct template for signing up
@@ -50,12 +50,12 @@ export const auth = betterAuth({
               userName: user.name!,
             }),
             sender: {
-              email: "farasatkhan687@gmail.com",
+              email: process.env.BREVO_SENDER_EMAIL,
               name: "Canel Restaurant",
             },
             to: [{ email: user.email, name: user.name! }],
             replyTo: {
-              email: "farasatkhan687@gmail.com",
+              email: process.env.BREVO_SENDER_EMAIL!,
               name: "Canel Restaurant",
             },
           });
@@ -86,12 +86,12 @@ export const auth = betterAuth({
               userName: email.split("@")[0],
             }),
             sender: {
-              email: "farasatkhan687@gmail.com",
+              email: process.env.BREVO_SENDER_EMAIL,
               name: "Canel Restaurant",
             },
             to: [{ email, name: email.split("@")[0] }],
             replyTo: {
-              email: "farasatkhan687@gmail.com",
+              email: process.env.BREVO_SENDER_EMAIL!,
               name: "Canel Restaurant",
             },
           });

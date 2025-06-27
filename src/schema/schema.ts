@@ -143,7 +143,7 @@ export const products = pgTable("products", {
   addonId: foreignkeyRef("addon_id", () => addon.id, {
     onDelete: "no action",
   }),
-  branchId: uuid("branch_id").references(() => branch.id, {
+  branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "cascade",
   }), // utility foregn key
   ...timeStamps,
