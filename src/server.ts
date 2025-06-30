@@ -26,6 +26,7 @@ import { addonItemsRoutes } from "./routes/addonitem.route";
 import { addonRoutes } from "./routes/addon.route";
 import { orderRoutes } from "./routes/order.route";
 import branchRouter from "./routes/branch.route";
+import brandingRoute from "./routes/branding.route";
 config();
 
 const app = express();
@@ -76,6 +77,8 @@ app.use("/api/branch/", branchRouter);
 app.use("/api/addon-category/", addonRoutes);
 app.use("/api/cart/", cartRoutes);
 app.use("/api/addon/", addonItemsRoutes);
+app.use("/api/branding/", brandingRoute);
+
 app.use(unknownRoutes);
 
 httpServer.listen(port as number, () => {

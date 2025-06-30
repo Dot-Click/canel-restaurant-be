@@ -145,7 +145,8 @@ export const products = pgTable("products", {
   }),
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "cascade",
-  }), // utility foregn key
+  }),
+  status: varchar("status", { enum: ["publish", "pending"] }),
   ...timeStamps,
 });
 
@@ -166,6 +167,7 @@ export const category = pgTable("category", {
   name: varchar("name").notNull(),
   description: varchar("description").notNull(),
   visibility: boolean("visibility").default(true),
+  status: varchar("status", { enum: ["publish", "pending"] }),
   ...timeStamps,
 });
 
@@ -271,6 +273,7 @@ export const addonItem = pgTable("addonItem", {
   addonId: foreignkeyRef("addon_id", () => addon.id, {
     onDelete: "cascade",
   }).notNull(),
+  status: varchar("status", { enum: ["publish", "pending"] }),
   ...timeStamps,
 });
 
@@ -278,6 +281,7 @@ export const addon = pgTable("addon", {
   id: uuid().primaryKey(),
   name: varchar("name").notNull(),
   description: varchar("description").notNull(),
+  status: varchar("status", { enum: ["publish", "pending"] }),
   ...timeStamps,
 });
 
@@ -350,6 +354,14 @@ export const cityRelations = relations(city, ({ many }) => ({
   branches: many(branch),
 }));
 
+// TODO LogosBanner
+export const branding = pgTable("branding", {
+  id: uuid("id").primaryKey(),
+  logo: varchar("logo"),
+  banner: varchar("banner"),
+  mainSection: varchar("main_section"),
+});
+
 // export const productInsertSchema = createInsertSchema(products);
 
 // Zod validation
@@ -372,3 +384,7 @@ export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
 export const branchInsertSchema = createInsertSchema(branch);
 export const orderInsertSchema = createInsertSchema(orders);
+
+// For updates
+export const categoryUpdateSchema = categoryInsertSchema.partial();
+export const productUpdateSchema = productInsertSchema.partial();

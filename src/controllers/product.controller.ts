@@ -2,7 +2,11 @@ import { status } from "http-status";
 import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
-import { productInsertSchema, products } from "@/schema/schema";
+import {
+  productInsertSchema,
+  products,
+  productUpdateSchema,
+} from "@/schema/schema";
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
@@ -186,6 +190,111 @@ export const fetchController = async (req: Request, res: Response) => {
     res.status(status.OK).json({
       message: "Product(s) fetched successfully",
       data: productData,
+    });
+  } catch (error) {
+    logger.error(error);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: (error as Error).message });
+  }
+};
+
+export const updateController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Product ID is required." });
+    }
+
+    let validatedData: Partial<typeof products.$inferInsert> = {};
+    console.log(validatedData);
+    // --- Scenario 1: Simple JSON update (for the availability switch) ---
+    if (req.is("application/json")) {
+      const { data, error } = productUpdateSchema.safeParse(req.body);
+      if (error) {
+        return res
+          .status(status.UNPROCESSABLE_ENTITY)
+          .json({ message: "Validation error", error: error.format() });
+      }
+      // Ensure price is a string to match the database schema
+      validatedData = {
+        ...data,
+        price: data.price !== undefined ? String(data.price) : undefined,
+      };
+    }
+    // --- Scenario 2: Full form update (for editing name, description, image, etc.) ---
+    else if (req.is("multipart/form-data")) {
+      const form = formidable();
+      const [formData, files] = await form.parse(req);
+      const newProductImage = files.productImage?.[0];
+
+      const fields = extractFormFields<FormData>(formData);
+      const { data, error } = productUpdateSchema.safeParse(fields);
+
+      if (error) {
+        return res
+          .status(status.UNPROCESSABLE_ENTITY)
+          .json({ message: "Validation error", error: error.format() });
+      }
+
+      validatedData = {
+        ...data,
+        price: data.price !== undefined ? String(data.price) : undefined,
+      };
+
+      if (newProductImage) {
+        const existingProduct = await database.query.products.findFirst({
+          where: eq(products.id, id),
+          columns: { image: true },
+        });
+        if (existingProduct?.image) {
+          const publicId = existingProduct.image
+            .split("/")
+            .pop()
+            ?.split(".")[0];
+          if (publicId)
+            await cloudinary.uploader.destroy(`products/${publicId}`);
+        }
+
+        const cloudinaryResponse = await cloudinary.uploader.upload(
+          newProductImage.filepath,
+          { folder: "products" }
+        );
+        validatedData.image = cloudinaryResponse.secure_url;
+      }
+    }
+    // --- Handle unsupported types ---
+    else {
+      return res
+        .status(status.UNSUPPORTED_MEDIA_TYPE)
+        .json({ message: "Content-Type not supported." });
+    }
+
+    // --- Common logic for both scenarios from here ---
+
+    if (Object.keys(validatedData).length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "No fields provided to update." });
+    }
+
+    const updatedProduct = await database
+      .update(products)
+      .set(validatedData)
+      .where(eq(products.id, id))
+      .returning();
+
+    if (updatedProduct.length === 0) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Product not found" });
+    }
+
+    res.status(status.OK).json({
+      message: "Product updated successfully",
+      data: updatedProduct[0],
     });
   } catch (error) {
     logger.error(error);
