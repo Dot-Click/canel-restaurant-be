@@ -37,35 +37,36 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
-  emailVerification: {
-    enabled: true,
-    async sendVerificationEmail({ token, user }) {
-      try {
-        console.log("EMail verification has been hit:::"),
-          await brevoTransactionApi.sendTransacEmail({
-            subject: "Welcome! Please Verify Your Email",
-            // Use the correct template for signing up
-            htmlContent: signupTemplate({
-              verificationCode: token,
-              userName: user.name!,
-            }),
-            sender: {
-              email: process.env.BREVO_SENDER_EMAIL,
-              name: "Canel Restaurant",
-            },
-            to: [{ email: user.email, name: user.name! }],
-            replyTo: {
-              email: process.env.BREVO_SENDER_EMAIL!,
-              name: "Canel Restaurant",
-            },
-          });
-      } catch (error) {
-        console.error("Failed to send verification email:", error);
-        // It's good practice to re-throw the error so better-auth can handle it if needed
-        throw new Error("Failed to send verification email.");
-      }
-    },
-  },
+  // emailVerification: {
+  //   enabled: true,
+  //   async sendVerificationEmail({ token, user }) {
+  //     try {
+  //       console.log("EMail verification has been hit:::"),
+  //         await brevoTransactionApi.sendTransacEmail({
+  //           subject: "Welcome! Please Verify Your Email",
+  //           // Use the correct template for signing up
+  //           htmlContent: signupTemplate({
+  //             verificationCode: token,
+  //             userName: user.name!,
+  //             email: user.email
+  //           }),
+  //           sender: {
+  //             email: process.env.BREVO_SENDER_EMAIL,
+  //             name: "Canel Restaurant",
+  //           },
+  //           to: [{ email: user.email, name: user.name! }],
+  //           replyTo: {
+  //             email: process.env.BREVO_SENDER_EMAIL!,
+  //             name: "Canel Restaurant",
+  //           },
+  //         });
+  //     } catch (error) {
+  //       console.error("Failed to send verification email:", error);
+  //       // It's good practice to re-throw the error so better-auth can handle it if needed
+  //       throw new Error("Failed to send verification email.");
+  //     }
+  //   },
+  // },
   plugins: [
     adminPlugin({
       ac,
@@ -84,6 +85,7 @@ export const auth = betterAuth({
             htmlContent: signupTemplate({
               verificationCode: otp,
               userName: email.split("@")[0],
+              email: email
             }),
             sender: {
               email: process.env.BREVO_SENDER_EMAIL,
