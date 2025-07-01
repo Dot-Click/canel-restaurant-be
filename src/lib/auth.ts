@@ -2,13 +2,15 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { database } from "../configs/connection.config";
 import { betterAuth } from "better-auth";
 import { env } from "@/utils/env.utils";
-import { admin as adminPlugin, emailOTP } from "better-auth/plugins";
+import {
+  admin as adminPlugin,
+  emailOTP,
+  phoneNumber,
+} from "better-auth/plugins";
 import * as schema from "@/schema/schema";
 import { ac, admin, manager, rider, subadmin } from "./permissions";
-// import { generalVerificationTemplate, signupTemplate } from "@/utils/brevo";
-// import { brevoTransactionApi } from "@/configs/brevo.config";
 import dotenv from "dotenv";
-import { brevoTransactionApi } from "@/configs/brevo.config";
+import { brevoTransactionApi, brevoSmsApi } from "@/configs/brevo.config";
 import { signupTemplate } from "@/utils/brevo";
 
 dotenv.config();
@@ -85,7 +87,7 @@ export const auth = betterAuth({
             htmlContent: signupTemplate({
               verificationCode: otp,
               userName: email.split("@")[0],
-              email: email
+              email: email,
             }),
             sender: {
               email: process.env.BREVO_SENDER_EMAIL,
@@ -100,6 +102,25 @@ export const auth = betterAuth({
         } catch (error) {
           console.error("Failed to send verification email:", error);
           throw new Error("Failed to send verification email.");
+        }
+      },
+    }),
+    phoneNumber({
+      async sendOTP({ phoneNumber, code }) {
+        try {
+          console.log(`Sending OTP ${code} to phone number ${phoneNumber}`);
+
+          await brevoSmsApi.sendTransacSms({
+            sender: process.env.BREVO_SMS_SENDER as string,
+            recipient: phoneNumber,
+            content: `Your Canel Restaurant verification code is: ${code}`,
+          });
+
+          console.log("Successfully sent phone number OTP.");
+        } catch (error) {
+          console.error("Failed to send phone number OTP:", error);
+          // Re-throw the error so better-auth can handle the failure
+          throw new Error("Failed to send phone number OTP.");
         }
       },
     }),

@@ -48,7 +48,7 @@ const foreignkeyRef = (
 //     .notNull(),
 // });
 
-// TODO Schema & Relations of Users
+// TODO Schema & Relations of
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   fullName: text("full_name").notNull(),
@@ -69,6 +69,8 @@ export const users = pgTable("users", {
   password: varchar("password"),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  phoneNumber: text("phone_number").unique(),
+  phoneNumberVerified: boolean("phone_number_verified"),
 });
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -146,7 +148,9 @@ export const products = pgTable("products", {
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "cascade",
   }),
-  status: varchar("status", { enum: ["publish", "pending"] }),
+  status: varchar("status", { enum: ["publish", "pending"] }).default(
+    "publish"
+  ),
   ...timeStamps,
 });
 
@@ -370,7 +374,7 @@ export const productInsertSchema = z.object({
   description: z.string().min(1, "Description is required"),
   categoryId: z.string().min(1, "Category is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
-
+  availability: z.coerce.boolean().optional(),
   discount: z.coerce.number().min(0, "Discount cannot be negative").optional(),
 });
 export const addonItemInsertSchema = z.object({

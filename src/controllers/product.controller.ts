@@ -202,6 +202,7 @@ export const fetchController = async (req: Request, res: Response) => {
 export const updateController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
     if (!id) {
       return res
         .status(status.BAD_REQUEST)
@@ -209,28 +210,31 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     let validatedData: Partial<typeof products.$inferInsert> = {};
-    console.log(validatedData);
-    // --- Scenario 1: Simple JSON update (for the availability switch) ---
+
     if (req.is("application/json")) {
       const { data, error } = productUpdateSchema.safeParse(req.body);
+
       if (error) {
         return res
           .status(status.UNPROCESSABLE_ENTITY)
           .json({ message: "Validation error", error: error.format() });
       }
-      // Ensure price is a string to match the database schema
+
+      console.log("This is  data", req.body);
+      console.log("This is  error", error);
       validatedData = {
         ...data,
         price: data.price !== undefined ? String(data.price) : undefined,
       };
-    }
-    // --- Scenario 2: Full form update (for editing name, description, image, etc.) ---
-    else if (req.is("multipart/form-data")) {
+    } else if (req.is("multipart/form-data")) {
       const form = formidable();
+
       const [formData, files] = await form.parse(req);
+
       const newProductImage = files.productImage?.[0];
 
       const fields = extractFormFields<FormData>(formData);
+
       const { data, error } = productUpdateSchema.safeParse(fields);
 
       if (error) {
