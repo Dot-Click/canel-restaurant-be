@@ -146,7 +146,7 @@ export const products = pgTable("products", {
     onDelete: "no action",
   }),
   branchId: foreignkeyRef("branch_id", () => branch.id, {
-    onDelete: "cascade",
+    onDelete: "set null",
   }),
   status: varchar("status", { enum: ["publish", "pending"] }).default(
     "publish"

@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import {
+  category,
   productInsertSchema,
   products,
   productUpdateSchema,
@@ -10,7 +11,7 @@ import {
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
-import { eq } from "drizzle-orm";
+import { eq, or, isNull } from "drizzle-orm";
 
 interface FormData {
   name: string;
@@ -305,5 +306,117 @@ export const updateController = async (req: Request, res: Response) => {
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
+  }
+};
+
+export const getProductsForBranch = async (req: Request, res: Response) => {
+  try {
+    // 1. Get the target branch ID from the request parameters.
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({ error: "Branch ID is required." });
+    }
+
+    // 2. Define the Common Table Expression (CTE) using db.$with()
+    // This CTE, named 'available_products', will act as a temporary, filtered table
+    // containing all products that are either specific to the branch or global.
+    const availableProductsCTE = database.$with("available_products").as(
+      database
+        .select({
+          id: products.id,
+          name: products.name,
+          description: products.description,
+          image: products.image,
+          price: products.price,
+          availability: products.availability,
+          status: products.status,
+          categoryId: products.categoryId,
+        })
+        .from(products)
+        .where(
+          // The core logic: product.branchId equals target OR product.branchId is NULL
+          or(eq(products.branchId, branchId), isNull(products.branchId))
+        )
+    );
+
+    // 3. Execute the main query using the CTE.
+    // We select from our pre-filtered 'available_products' CTE and join
+    // related data like the category.
+    const result = await database
+      .with(availableProductsCTE)
+      .select({
+        product: {
+          id: availableProductsCTE.id,
+          name: availableProductsCTE.name,
+          description: availableProductsCTE.description,
+          image: availableProductsCTE.image,
+          price: availableProductsCTE.price,
+          availability: availableProductsCTE.availability,
+          status: availableProductsCTE.status,
+        },
+        category: {
+          id: category.id,
+          name: category.name, // Assuming your category table has a 'name' field
+        },
+      })
+      .from(availableProductsCTE)
+      .leftJoin(category, eq(availableProductsCTE.categoryId, category.id))
+      .where(eq(availableProductsCTE.status, "publish")); // Optional: Only get published products
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Failed to fetch products for branch:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const assignProductToBranch = async (req: Request, res: Response) => {
+  console.log("This is the request body: ", req.body);
+  console.log("This is the request params: ", req.params);
+
+  try {
+    // 1. Get the Product ID from the URL parameters
+    const { productId } = req.params;
+
+    // 2. Get the new Branch ID from the request body.
+    // The body could look like: { "branchId": "uuid-of-the-branch" }
+    // or to make it global: { "branchId": null }
+    const { branchId } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required." });
+    }
+
+    // Note: 'branchId' can be null, so we don't check for its existence,
+    // only that the key is present in the body if you want to be strict.
+    // A check for `branchId === undefined` would be more robust.
+
+    // 3. Perform the update operation in the database
+    const updatedProduct = await database
+      .update(products)
+      .set({
+        branchId: branchId,
+      })
+      .where(eq(products.id, productId))
+      .returning({
+        updatedId: products.id,
+        name: products.name,
+        assignedBranchId: products.branchId,
+      });
+
+    // 4. Check if the update operation found and updated a product
+    if (updatedProduct.length === 0) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+
+    // 5. Return a success response
+    return res.status(200).json({
+      message: "Product branch assignment updated successfully.",
+      product: updatedProduct[0],
+    });
+  } catch (error) {
+    console.error("Failed to assign product to branch:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
