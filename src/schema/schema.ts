@@ -65,7 +65,7 @@ export const users = pgTable("users", {
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   role: text("role").default("user"),
-  banned: boolean("banned"),
+  banned: boolean("banned").default(false),
   password: varchar("password"),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
@@ -133,7 +133,6 @@ export const products = pgTable("products", {
   description: varchar("description").notNull(),
   image: varchar("product_image"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
-  instruction: varchar("instruction"),
   availability: boolean("availability").default(true),
   size: varchar("size", { enum: ["large", "medium", "small"] }).default(
     "medium"
@@ -142,9 +141,7 @@ export const products = pgTable("products", {
   categoryId: foreignkeyRef("category_id", () => category.id, {
     onDelete: "cascade",
   }).notNull(),
-  addonId: foreignkeyRef("addon_id", () => addon.id, {
-    onDelete: "no action",
-  }),
+  addonItemIds: json("addon_item_ids").$type<string[]>().default([]),
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "set null",
   }),
@@ -376,6 +373,7 @@ export const productInsertSchema = z.object({
   price: z.coerce.number().positive("Price must be a positive number"),
   availability: z.coerce.boolean().optional(),
   discount: z.coerce.number().min(0, "Discount cannot be negative").optional(),
+  addonItemIds: z.array(z.string()).optional(),
 });
 export const addonItemInsertSchema = z.object({
   name: z.string().min(1, "Product name is required"),

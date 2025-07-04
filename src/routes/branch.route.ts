@@ -14,10 +14,10 @@ const branchRouter = Router();
 
 // Add a new branch
 branchRouter.post("/create-branch", addBranchController);
-branchRouter.post("/update-branch", updateBranchController);
+branchRouter.patch("/update-branch/:id", updateBranchController);
 
 // Remove a branch by ID
-branchRouter.delete("delete-branch/:id", removeBranchController);
+branchRouter.delete("/delete-branch/:id", removeBranchController);
 
 // Fetch all branches
 branchRouter.get("/fetch-all-branch", fetchAllBranchesController);

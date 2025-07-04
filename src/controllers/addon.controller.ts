@@ -5,6 +5,21 @@ import { database } from "@/configs/connection.config";
 import { addonInsertSchema, addon } from "@/schema/schema";
 import { eq } from "drizzle-orm";
 
+interface Item {
+  id: string;
+  name: string;
+  price: string;
+  status?: boolean;
+  image: string;
+  discount?: number;
+}
+
+interface GroupedAddon {
+  addonId: string;
+  addonName: string;
+  items: Item[];
+}
+
 // === INSERT CONTROLLER FOR ADDON ===
 export const insertController = async (req: Request, res: Response) => {
   try {
@@ -94,5 +109,73 @@ export const fetchController = async (req: Request, res: Response) => {
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
+  }
+};
+
+export const getAddonsWithItemsController = async (
+  _req: Request,
+  res: Response
+) => {
+  try {
+    // 1. Fetch all addon items and include their parent "addon" (category)
+    const allItems = await database.query.addonItem.findMany({
+      // where: eq(addonItem.status, true),
+      with: {
+        addon: true,
+      },
+    });
+
+    if (!allItems || allItems.length === 0) {
+      return res.status(status.OK).json({
+        message: "No addon items found.",
+        data: [],
+      });
+    }
+
+    // 2. Group the flat array of items by their category ('addon')
+    const groupedData = new Map<string, GroupedAddon>();
+
+    for (const item of allItems) {
+      // --- THIS IS THE FIX ---
+      // Check for the 'addon' property now
+      if (!item.addon) {
+        continue;
+      }
+
+      // Destructure 'addon' from the item
+      const { addon, ...itemDetails } = item;
+
+      // If we haven't seen this category ID yet, create a new group for it
+      if (!groupedData.has(addon.id)) {
+        groupedData.set(addon.id, {
+          addonId: addon.id,
+          addonName: addon.name,
+          items: [],
+        });
+      }
+
+      // Add the current item to its category's group
+      groupedData.get(addon.id)!.items.push({
+        id: itemDetails.id,
+        name: itemDetails.name,
+        price: itemDetails.price,
+        image: itemDetails.image ?? "",
+        discount:
+          itemDetails.discount === null ? undefined : itemDetails.discount,
+      });
+    }
+
+    // 3. Convert the Map to an array for the final JSON response
+    const result = Array.from(groupedData.values());
+
+    return res.status(status.OK).json({
+      message: "Addons and their items fetched successfully.",
+      data: result,
+    });
+  } catch (error) {
+    logger.error("Error fetching grouped addon items:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An error occurred while fetching addon items.",
+    });
   }
 };

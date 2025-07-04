@@ -18,21 +18,38 @@ interface FormData {
   price: string;
   description: string;
   categoryId: string;
+  addonItemIds: string[];
 }
 
 export const insertController = async (req: Request, res: Response) => {
   try {
     const form = formidable();
-    // step 1 parse form
+
     const [formData, files] = await form.parse<any, "productImage">(req);
     const productImage = files.productImage?.[0];
 
-    // step 2 extract fields
-    const fields = extractFormFields<FormData>(formData);
+    let addonItemIds: string[] = [];
+    if (formData.addonItemIds) {
+      addonItemIds = Array.isArray(formData.addonItemIds)
+        ? formData.addonItemIds
+        : [formData.addonItemIds];
+    }
 
-    // step 3 validate fields
-    const { data, error } = productInsertSchema.safeParse(fields);
-    console.log("This is fields", data);
+    // STEP 3: Extract the rest of the fields using your helper
+    const otherFields =
+      extractFormFields<Omit<FormData, "addonItemIds">>(formData);
+
+    // STEP 4: Combine all fields into a single payload for validation
+    const payloadToValidate = {
+      ...otherFields,
+      addonItemIds,
+    };
+
+    // STEP 5: Validate the combined payload with the updated Zod schema
+    const { data, error } = productInsertSchema.safeParse(payloadToValidate);
+
+    console.log("This is the data", data);
+    console.log("This is the request body", otherFields);
 
     if (!data) {
       logger.error("Validation failed", error);
@@ -42,50 +59,46 @@ export const insertController = async (req: Request, res: Response) => {
       });
     }
 
-    // validate incoming image
+    // STEP 6: Handle image upload (No changes here)
     if (!productImage) {
       return res
         .status(status.UNPROCESSABLE_ENTITY)
         .json({ message: "Image not provided" });
     }
-
-    // upload to cloudinary
     const cloudinaryResponse = await cloudinary.uploader.upload(
       productImage.filepath,
-      {
-        folder: "products",
-        use_filename: true,
-        unique_filename: false,
-      }
+      { folder: "products" }
     );
-
     if (!cloudinaryResponse) {
       return res
         .status(status.UNPROCESSABLE_ENTITY)
         .json({ message: "Problem with image" });
     }
 
-    // return console.log("this is cloudinary response", cloudinaryResponse);
-
-    // public url
-
+    // STEP 7: Insert the product into the database, INCLUDING addonItemIds
+    // We use the validated `data` from Zod.
     const insertedProduct = await database
       .insert(products)
       .values({
-        name: fields.name!,
-        description: fields.description!,
-        price: fields.price!,
+        name: data.name,
+        description: data.description,
+        price: String(data.price), // Drizzle numeric often expects a string
         image: cloudinaryResponse.secure_url,
-        categoryId: fields.categoryId!,
-        ...fields,
+        categoryId: data.categoryId,
+        discount: data.discount,
+        // This is the key addition:
+        addonItemIds: data.addonItemIds || [], // Use validated data, default to empty array
       })
       .returning();
-    console.log("this is inserted product", insertedProduct);
+
     if (insertedProduct[0]) {
       return res.status(status.CREATED).json({
         message: "Product inserted successfully",
         data: insertedProduct[0],
       });
+    } else {
+      // It's good practice to handle the case where insertion might fail silently
+      throw new Error("Product could not be created.");
     }
   } catch (error) {
     logger.error(error);
@@ -269,9 +282,7 @@ export const updateController = async (req: Request, res: Response) => {
         );
         validatedData.image = cloudinaryResponse.secure_url;
       }
-    }
-    // --- Handle unsupported types ---
-    else {
+    } else {
       return res
         .status(status.UNSUPPORTED_MEDIA_TYPE)
         .json({ message: "Content-Type not supported." });
