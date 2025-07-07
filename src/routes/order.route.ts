@@ -1,4 +1,5 @@
 import {
+  createPosOrderController,
   deleteController,
   fetchController,
   getOrderByIdController,
@@ -13,5 +14,6 @@ orderRoutes.post("/create-order", protectRoute, insertController);
 orderRoutes.post("/delete-order/:id", protectRoute, deleteController);
 orderRoutes.get("/fetch-order", protectRoute, fetchController);
 orderRoutes.get("/user-orders/:id", protectRoute, getOrderByIdController);
+orderRoutes.post('/create-pos-order', protectRoute, createPosOrderController);
 
 export { orderRoutes };
