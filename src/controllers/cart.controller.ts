@@ -8,52 +8,51 @@ export const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
-    const { productId, quantity = 1 } = req.body;
-
-    console.log(req.body);
+    const { productId, quantity = 1, notes } = req.body;
 
     if (!productId) {
-      res
+      return res
         .status(status.UNPROCESSABLE_ENTITY)
         .json({ message: "Product Id is required" });
     }
 
-    let [existingCart] = await database
-      .select()
-      .from(cart)
-      .where(eq(cart.userId, userId));
+    let cartId: string;
 
-    if (!existingCart) {
-      await database.insert(cart).values({ userId });
-      [existingCart] = await database
-        .select()
-        .from(cart)
-        .where(eq(cart.userId, userId));
+    const existingCart = await database.query.cart.findFirst({
+      where: eq(cart.userId, userId),
+    });
+
+    if (existingCart) {
+      cartId = existingCart.id;
+    } else {
+      const [newCart] = await database
+        .insert(cart)
+        .values({ userId })
+        .returning({ id: cart.id });
+      cartId = newCart.id;
     }
 
-    const cartId = existingCart.id;
-
-    const [existingItem] = await database
-      .select()
-      .from(cartItems)
-      .where(
-        and(eq(cartItems.cartId, cartId), eq(cartItems.productId, productId))
-      );
+    const existingItem = await database.query.cartItems.findFirst({
+      where: and(
+        eq(cartItems.cartId, cartId),
+        eq(cartItems.productId, productId)
+      ),
+    });
 
     if (existingItem) {
-      // Update quantity
       await database
         .update(cartItems)
-        .set({ quantity: existingItem.quantity + quantity })
-        .where(
-          and(eq(cartItems.cartId, cartId), eq(cartItems.productId, productId))
-        );
+        .set({
+          quantity: existingItem.quantity + quantity,
+          instructions: notes || existingItem.instructions,
+        })
+        .where(eq(cartItems.id, existingItem.id));
     } else {
-      // Insert new item
       await database.insert(cartItems).values({
         cartId,
         productId,
         quantity,
+        instructions: notes,
       });
     }
 

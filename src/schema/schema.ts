@@ -206,6 +206,7 @@ export const orderItems = pgTable("orderItems", {
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   productName: varchar("product_name").notNull(),
+  instructions: varchar("instructions"),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -232,6 +233,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const cart = pgTable("cart", {
   id: uuid().primaryKey(),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
   ...timeStamps,
 });
 
@@ -244,6 +246,7 @@ export const cartItems = pgTable("cartItem", {
     onDelete: "cascade",
   }),
   quantity: integer("quantity").default(1).notNull(),
+  instructions: varchar("instructions"),
 });
 
 export const cartrelation = relations(cart, ({ many }) => ({
