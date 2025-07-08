@@ -149,3 +149,78 @@ export const fetchController = async (req: Request, res: Response) => {
       .json({ error: "Something went wrong." });
   }
 };
+
+export const updateCartItem = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { productId, quantity } = req.body;
+
+    
+    if (!productId || typeof quantity !== 'number' || quantity < 0) {
+      return res.status(status.BAD_REQUEST).json({
+        message: "A valid productId and a non-negative quantity are required.",
+      });
+    }
+
+    
+    const userCart = await database.query.cart.findFirst({
+      where: eq(cart.userId, userId),
+      columns: { id: true }, 
+    });
+
+    if (!userCart) {
+      return res.status(status.NOT_FOUND).json({ message: "Cart not found for this user." });
+    }
+
+    
+    if (quantity === 0) {
+      const deletedItems = await database
+        .delete(cartItems)
+        .where(
+          and(
+            eq(cartItems.cartId, userCart.id),
+            eq(cartItems.productId, productId)
+          )
+        )
+        .returning();
+
+      if (deletedItems.length === 0) {
+        return res.status(status.NOT_FOUND).json({ message: "Item not found in cart to delete." });
+      }
+
+      return res.status(status.OK).json({
+        message: "Item removed from cart as quantity was set to 0.",
+      });
+    }
+    
+    
+    const updatedItems = await database
+      .update(cartItems)
+      .set({ quantity: quantity })
+      .where(
+        
+        and(
+          eq(cartItems.cartId, userCart.id),
+          eq(cartItems.productId, productId)
+        )
+      )
+      .returning(); 
+
+      
+    if (updatedItems.length === 0) {
+      return res.status(status.NOT_FOUND).json({ message: "Item not found in cart to update." });
+    }
+
+    
+    return res.status(status.OK).json({
+      message: "Item quantity updated successfully.",
+      data: updatedItems[0], 
+    });
+
+  } catch (err) {
+    console.error("Update cart item error:", err);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      error: "Something went wrong."
+    });
+  }
+};

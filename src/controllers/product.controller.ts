@@ -431,3 +431,33 @@ export const assignProductToBranch = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+export const getCategoriesWithProducts = async (_req: Request, res: Response) => {
+  try {
+    
+    const categoriesWithProducts = await database.query.category.findMany({
+      where: (categories, { eq }) => eq(categories.visibility, true),
+      with: {
+        
+        products: {
+          where: (products, { eq }) => eq(products.availability, true),
+          
+        },
+      },
+    });
+
+    
+    const result = categoriesWithProducts.filter(category => category.products.length > 0);
+
+    return res.status(status.OK).json({
+      message: "Categories and products fetched successfully.",
+      data: result,
+    });
+
+  } catch (error) {
+    console.error("Error fetching categories with products:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      error: "An unexpected error occurred."
+    });
+  }
+};
