@@ -192,7 +192,7 @@ export const orders = pgTable("orders", {
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
   // cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
-  ...timestamp,
+  ...timeStamps,
 });
 
 export const orderItems = pgTable("orderItems", {
