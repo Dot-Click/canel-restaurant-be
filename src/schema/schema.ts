@@ -31,23 +31,6 @@ const foreignkeyRef = (
   actions?: ReferenceConfig["actions"]
 ) => varchar(columnName, { length: 128 }).references(refColumn, actions);
 
-// Schemas
-// export const users = pgTable("users", {
-//   id: text("id").primaryKey(),
-//   fullName: text("full_name").notNull(),
-//   email: text("email").notNull().unique(),
-//   emailVerified: boolean("email_verified")
-//     .$defaultFn(() => false)
-//     .notNull(),
-//   profilePic: text("profile_pic"),
-//   createdAt: timestamp("created_at")
-//     .$defaultFn(() => new Date())
-//     .notNull(),
-//   updatedAt: timestamp("updated_at")
-//     .$defaultFn(() => new Date())
-//     .notNull(),
-// });
-
 // TODO Schema & Relations of
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -75,7 +58,7 @@ export const users = pgTable("users", {
 
 export const usersRelations = relations(users, ({ many, one }) => ({
   orders: many(orders),
-  managedBranch: one(branch, {
+  branch: one(branch, {
     fields: [users.id],
     references: [branch.manager],
   }),
@@ -191,7 +174,9 @@ export const orders = pgTable("orders", {
   changeRequest: varchar("change_request"),
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
-  // cartId: foreignkeyRef("cart_id", () => cart.id, { onDelete: "cascade" }),
+  branchId: foreignkeyRef("branch_id", () => branch.id, {
+    onDelete: "set null",
+  }),
   ...timeStamps,
 });
 
@@ -215,6 +200,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, {
     fields: [orders.userId],
     references: [users.id],
+  }),
+  branch: one(branch, {
+    fields: [orders.branchId],
+    references: [branch.id],
   }),
 }));
 
@@ -346,11 +335,11 @@ export const branchRelations = relations(branch, ({ many, one }) => ({
     fields: [branch.manager],
     references: [users.id],
   }),
-  // A branch is located in ONE city
   city: one(city, {
     fields: [branch.cityId],
     references: [city.id],
   }),
+  orders: many(orders),
 }));
 
 export const cityRelations = relations(city, ({ many }) => ({

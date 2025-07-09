@@ -17,6 +17,13 @@ const apiBranchAddPayloadSchema = branchInsertSchema
 const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
   areas: z.array(z.string()).optional(),
   email: z.string().email("Invalid email format.").optional(),
+  name: z.string().optional(),
+  address: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  operatingHours: z.string().optional(),
+  status: z.enum(["open", "closed"]).optional(),
+  cityId: z.string().optional(),
+  manager: z.string().optional(),
 });
 
 export const addBranchController = async (req: Request, res: Response) => {
@@ -144,6 +151,8 @@ export const updateBranchController = async (req: Request, res: Response) => {
     const { id } = req.params;
     const validation = apiBranchUpdatePayloadSchema.safeParse(req.body);
 
+    console.log("THis is req.boyd", req.body);
+
     if (!validation.success) {
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
@@ -156,7 +165,7 @@ export const updateBranchController = async (req: Request, res: Response) => {
         .status(status.BAD_REQUEST)
         .json({ message: "No fields to update provided." });
     }
-
+    console.log("This is validation data", validation.data);
     const [updatedBranch] = await database
       .update(branch)
       .set(validation.data)

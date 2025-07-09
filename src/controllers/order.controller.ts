@@ -4,10 +4,11 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import { eq } from "drizzle-orm";
 import { cart, cartItems, orderItems, orders, users } from "@/schema/schema";
+// import { auth } from "@/lib/auth";
 
 export const insertController = async (req: Request, res: Response) => {
   const { cartId, ...formData } = req.body;
-
+  console.log(req.body);
   const userId = req.user!.id;
 
   console.log("This is the request body", req.body);
@@ -107,20 +108,48 @@ export const deleteController = async (req: Request, res: Response) => {
 
 export const fetchController = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const userId = req?.user?.id;
+    const userRole = req.user?.role;
+    console.log("This is user Role", userRole);
+    if (!userId) {
+      return res.status(401).json({ message: "User ID missing in session" });
+    }
 
-    let orderList;
+    let orderList = [];
 
-    if (id) {
-      orderList = await database.query.orders.findFirst({
-        where: (orders, { eq }) => eq(orders.id, id),
+    if (userRole === "admin") {
+      orderList = await database.query.orders.findMany({
+        orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+        with: {
+          orderItems: true,
+        },
+      });
+    } else if (userRole === "manager") {
+      const branch = await database.query.branch.findFirst({
+        where: (branch, { eq }) => eq(branch.manager, userId),
+      });
+      console.log("This is branch", branch);
+      if (!branch) {
+        return res.status(status.FORBIDDEN).json({
+          message: "No branch assigned to this manager.",
+        });
+      }
+
+      orderList = await database.query.orders.findMany({
+        where: (orders, { eq }) => eq(orders.branchId, branch.id),
+        orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+        with: {
+          orderItems: true,
+        },
       });
     } else {
-      orderList = await database.query.orders.findMany();
+      return res.status(status.FORBIDDEN).json({
+        message: "Unauthorized user role.",
+      });
     }
 
     res.status(status.OK).json({
-      message: "Order fetched successfully",
+      message: "Orders fetched successfully",
       data: orderList,
     });
   } catch (error) {
