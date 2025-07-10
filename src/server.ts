@@ -27,6 +27,8 @@ import { addonRoutes } from "./routes/addon.route";
 import { orderRoutes } from "./routes/order.route";
 import branchRouter from "./routes/branch.route";
 import brandingRoute from "./routes/branding.route";
+import { scheduleRoute } from "./routes/schedule.route";
+import { userRoute } from "./routes/user.route";
 config();
 
 const app = express();
@@ -78,6 +80,8 @@ app.use("/api/addon-category/", addonRoutes);
 app.use("/api/cart/", cartRoutes);
 app.use("/api/addon/", addonItemsRoutes);
 app.use("/api/branding/", brandingRoute);
+app.use("/api/schedule/", scheduleRoute);
+app.use("/api/users/", userRoute);
 
 app.use(unknownRoutes);
 

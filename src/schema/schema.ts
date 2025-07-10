@@ -9,6 +9,7 @@ import {
   ReferenceConfig,
   numeric,
   json,
+  time,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
@@ -354,6 +355,45 @@ export const branding = pgTable("branding", {
   banner: varchar("banner"),
   mainSection: varchar("main_section"),
 });
+
+// Branch Schedules
+export const branchSchedule = pgTable("branchSchedule", {
+  id: uuid().primaryKey(),
+
+  branchId: varchar("branch_id")
+    .notNull()
+    .references(() => branch.id, { onDelete: "cascade" }),
+
+  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday, 6 = Saturday
+
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const branchScheduleRelations = relations(
+  branchSchedule,
+  ({ many }) => ({
+    timeSlots: many(timeSlot),
+  })
+);
+
+// Time Slot
+export const timeSlot = pgTable("timeSlot", {
+  id: uuid().primaryKey(),
+
+  scheduleId: varchar("schedule_id")
+    .notNull()
+    .references(() => branchSchedule.id, { onDelete: "cascade" }),
+
+  openTime: time("open_time").notNull(),
+  closeTime: time("close_time").notNull(),
+});
+
+export const timeSlotRelations = relations(timeSlot, ({ one }) => ({
+  schedule: one(branchSchedule, {
+    fields: [timeSlot.scheduleId],
+    references: [branchSchedule.id],
+  }),
+}));
 
 // export const productInsertSchema = createInsertSchema(products);
 
