@@ -53,6 +53,7 @@ export const insertController = async (req: Request, res: Response) => {
           productName: item.product.name,
           quantity: item.quantity,
           price: item.product.price,
+          instructions: item.instructions || "", // Ensure instructions are included
         };
       });
 
