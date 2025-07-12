@@ -178,6 +178,9 @@ export const orders = pgTable("orders", {
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "set null",
   }),
+  riderId: varchar("rider_id", { length: 255 }).references(() => users.id, {
+    onDelete: "set null",
+  }),
   ...timeStamps,
 });
 
@@ -413,6 +416,7 @@ export const addonItemInsertSchema = z.object({
   addonId: z.string().min(1, "Addon is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
 });
+
 export const addonInsertSchema = createInsertSchema(addon);
 export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);

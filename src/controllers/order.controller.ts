@@ -161,6 +161,50 @@ export const fetchController = async (req: Request, res: Response) => {
   }
 };
 
+export const updateController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    console.log("This is the updated data", updateData);
+    console.log("This is the ID:", id);
+    if (!id) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Order ID is required." });
+    }
+
+    if (updateData.id) {
+      delete updateData.id;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "No update data provided." });
+    }
+
+    const updatedOrder = await database
+      .update(orders)
+      .set(updateData)
+      .where(eq(orders.id, id))
+      .returning();
+
+    if (updatedOrder.length === 0) {
+      return res.status(status.NOT_FOUND).json({ message: "Order not found" });
+    }
+
+    res.status(status.OK).json({
+      message: "Order updated successfully",
+      data: updatedOrder[0],
+    });
+  } catch (error) {
+    logger.error("Failed to update order:", error);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: (error as Error).message });
+  }
+};
+
 export const getOrderByIdController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -285,6 +329,57 @@ export const createPosOrderController = async (req: Request, res: Response) => {
     logger.error("Failed to create POS order:", error);
 
     return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: (error as Error).message });
+  }
+};
+
+export const assignRiderController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // The Order ID
+    const { riderId } = req.body; // The Rider's User ID
+
+    if (!id) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Order ID is required." });
+    }
+    if (!riderId) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Rider ID is required." });
+    }
+
+    // Optional but recommended: Check if the rider actually exists and has the 'rider' role
+    const riderExists = await database.query.users.findFirst({
+      where: (users, { and, eq }) =>
+        and(eq(users.id, riderId), eq(users.role, "rider")),
+    });
+
+    if (!riderExists) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "A valid rider with that ID was not found." });
+    }
+
+    // Update the order, setting the new riderId
+    const updatedOrder = await database
+      .update(orders)
+      .set({ riderId: riderId }) // The core logic is here
+      .where(eq(orders.id, id))
+      .returning();
+
+    if (updatedOrder.length === 0) {
+      return res.status(status.NOT_FOUND).json({ message: "Order not found." });
+    }
+
+    res.status(status.OK).json({
+      message: "Order successfully assigned to rider.",
+      data: updatedOrder[0],
+    });
+  } catch (error) {
+    logger.error("Failed to assign rider to order:", error);
+    res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
   }

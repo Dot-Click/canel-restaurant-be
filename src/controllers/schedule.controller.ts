@@ -11,7 +11,7 @@ export const createOrUpdateBranchScheduleController = async (
 ) => {
   try {
     const { branchId, dayOfWeek, timeSlots: slots } = req.body;
-
+    console.log(req.body);
     if (
       !branchId ||
       dayOfWeek === undefined ||
