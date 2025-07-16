@@ -4,6 +4,7 @@ import {
   toggleSchedule,
 } from "@/controllers/schedule.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
+import { checkPermission } from "@/middlewares/checkpermission.middleware";
 import { Router } from "express";
 
 const scheduleRoute = Router();
@@ -11,10 +12,12 @@ const scheduleRoute = Router();
 scheduleRoute.post(
   "/create-schedule",
   protectRoute,
+  checkPermission("add bussiness hours"),
   createOrUpdateBranchScheduleController
 );
 
-scheduleRoute.get("/:id", protectRoute, getSchedules);
 scheduleRoute.patch("/toggle", protectRoute, toggleSchedule);
+
+scheduleRoute.get("/:id", protectRoute, getSchedules);
 
 export { scheduleRoute };

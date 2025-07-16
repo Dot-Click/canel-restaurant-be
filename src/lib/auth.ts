@@ -131,5 +131,11 @@ export const auth = betterAuth({
       image: "profilePic",
       name: "fullName",
     },
+    additionalFields: {
+      permissions: {
+        type: "string[]",
+        fieldName: "permissions",
+      },
+    },
   },
 });

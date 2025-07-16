@@ -27,7 +27,7 @@ export const insertController = async (req: Request, res: Response) => {
 
     const [formData, files] = await form.parse<any, "productImage">(req);
     const productImage = files.productImage?.[0];
-
+    console.log(formData);
     let addonItemIds: string[] = [];
     if (formData.addonItemIds) {
       addonItemIds = Array.isArray(formData.addonItemIds)
@@ -234,8 +234,6 @@ export const updateController = async (req: Request, res: Response) => {
           .json({ message: "Validation error", error: error.format() });
       }
 
-      console.log("This is  data", req.body);
-      console.log("This is  error", error);
       validatedData = {
         ...data,
         price: data.price !== undefined ? String(data.price) : undefined,
@@ -432,32 +430,32 @@ export const assignProductToBranch = async (req: Request, res: Response) => {
   }
 };
 
-export const getCategoriesWithProducts = async (_req: Request, res: Response) => {
+export const getCategoriesWithProducts = async (
+  _req: Request,
+  res: Response
+) => {
   try {
-    
     const categoriesWithProducts = await database.query.category.findMany({
       where: (categories, { eq }) => eq(categories.visibility, true),
       with: {
-        
         products: {
           where: (products, { eq }) => eq(products.availability, true),
-          
         },
       },
     });
 
-    
-    const result = categoriesWithProducts.filter(category => category.products.length > 0);
+    const result = categoriesWithProducts.filter(
+      (category) => category.products.length > 0
+    );
 
     return res.status(status.OK).json({
       message: "Categories and products fetched successfully.",
       data: result,
     });
-
   } catch (error) {
     console.error("Error fetching categories with products:", error);
     return res.status(status.INTERNAL_SERVER_ERROR).json({
-      error: "An unexpected error occurred."
+      error: "An unexpected error occurred.",
     });
   }
 };

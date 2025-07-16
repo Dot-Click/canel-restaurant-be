@@ -15,6 +15,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
+import { permissionValues } from "@/lib/checkrole";
 
 const timeStamps = {
   createdAt: timestamp("created_at").defaultNow(),
@@ -49,6 +50,7 @@ export const users = pgTable("users", {
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   role: text("role").default("user"),
+  permissions: text("permissions").array(),
   banned: boolean("banned").default(false),
   password: varchar("password"),
   banReason: text("ban_reason"),
@@ -278,6 +280,7 @@ export const addon = pgTable("addon", {
   id: uuid().primaryKey(),
   name: varchar("name").notNull(),
   description: varchar("description").notNull(),
+  visibility: boolean("visibility").default(true),
   status: varchar("status", { enum: ["publish", "pending"] }),
   ...timeStamps,
 });
@@ -417,6 +420,20 @@ export const addonItemInsertSchema = z.object({
   price: z.coerce.number().positive("Price must be a positive number"),
 });
 
+const permissionEnum = z.enum(permissionValues);
+
+export const assignPermissionsSchema = z.object({
+  permissions: z
+    .array(permissionEnum)
+    .min(1, { message: "At least one permission is required." })
+    .default([]),
+});
+
+// Schema for the userId in the URL parameters
+export const staffIdParamSchema = z.object({
+  userId: z.string().min(1, { message: "User ID cannot be empty." }),
+});
+
 export const addonInsertSchema = createInsertSchema(addon);
 export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
@@ -426,3 +443,5 @@ export const orderInsertSchema = createInsertSchema(orders);
 // For updates
 export const categoryUpdateSchema = categoryInsertSchema.partial();
 export const productUpdateSchema = productInsertSchema.partial();
+export const addonUpdateSchema = addonInsertSchema.partial();
+export const addonItemUpdateSchema = addonItemInsertSchema.partial();

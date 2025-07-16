@@ -1,3 +1,4 @@
+import { protectRoute } from "@/middlewares/auth.middleware";
 import { Router } from "express";
 import {
   addBranchController,
@@ -9,15 +10,31 @@ import {
   updateBranchController,
   fetchAreasForCityController,
 } from "../controllers/branch.controller";
+import { checkPermission } from "@/middlewares/checkpermission.middleware";
 
 const branchRouter = Router();
 
 // Add a new branch
-branchRouter.post("/create-branch", addBranchController);
-branchRouter.patch("/update-branch/:id", updateBranchController);
+branchRouter.post(
+  "/create-branch",
+  protectRoute,
+  checkPermission("add branch"),
+  addBranchController
+);
+branchRouter.patch(
+  "/update-branch/:id",
+  protectRoute,
+  checkPermission("update branch"),
+  updateBranchController
+);
 
 // Remove a branch by ID
-branchRouter.delete("/delete-branch/:id", removeBranchController);
+branchRouter.delete(
+  "/delete-branch/:id",
+  protectRoute,
+  checkPermission("delete branch"),
+  removeBranchController
+);
 
 // Fetch all branches
 branchRouter.get("/fetch-all-branch", fetchAllBranchesController);

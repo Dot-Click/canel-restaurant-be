@@ -5,18 +5,41 @@ import {
   getProductsForBranch,
   insertController,
   updateController,
-  getCategoriesWithProducts
+  getCategoriesWithProducts,
 } from "@/controllers/product.controller";
+import { protectRoute } from "@/middlewares/auth.middleware";
+import { checkPermission } from "@/middlewares/checkpermission.middleware";
 import { Router } from "express";
 
 const productRoutes = Router();
 
-productRoutes.post("/product-create", insertController);
+productRoutes.post(
+  "/product-create",
+  protectRoute,
+  checkPermission("add product"),
+  insertController
+);
+productRoutes.post(
+  "/product-delete",
+  protectRoute,
+  checkPermission("delete product"),
+  deleteController
+);
+productRoutes.patch(
+  "/products-update/:id",
+  protectRoute,
+  checkPermission("update product"),
+  updateController
+);
+productRoutes.patch(
+  "/assign-branch/:productId",
+  protectRoute,
+  checkPermission("update product"),
+  assignProductToBranch
+);
+
 productRoutes.get("/product-fetch", fetchController);
-productRoutes.post("/product-delete", deleteController);
-productRoutes.patch("/products-update/:id", updateController);
 productRoutes.get("/product-branch/:branchId", getProductsForBranch);
-productRoutes.patch("/assign-branch/:productId", assignProductToBranch);
 productRoutes.get("/categories-with-products", getCategoriesWithProducts);
 // router.get("/products/global", getGlobalProducts);
 

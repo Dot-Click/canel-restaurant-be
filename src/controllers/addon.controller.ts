@@ -2,7 +2,7 @@ import { status } from "http-status";
 import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
-import { addonInsertSchema, addon } from "@/schema/schema";
+import { addonInsertSchema, addon, addonUpdateSchema } from "@/schema/schema";
 import { eq } from "drizzle-orm";
 
 interface Item {
@@ -177,5 +177,66 @@ export const getAddonsWithItemsController = async (
     return res.status(status.INTERNAL_SERVER_ERROR).json({
       message: "An error occurred while fetching addon items.",
     });
+  }
+};
+
+export const updateAddonCategoryController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    // 1. Get the ID from URL parameters
+    const { id } = req.params;
+
+    if (!id) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Addon Category ID is required in the URL." });
+    }
+
+    // 2. Validate the request body using our new partial schema
+    const validationResult = addonUpdateSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      logger.error("Update validation failed", validationResult.error);
+      return res.status(status.UNPROCESSABLE_ENTITY).json({
+        message: "Validation error",
+        error: validationResult.error.format(),
+      });
+    }
+
+    const dataToUpdate = validationResult.data;
+
+    // 3. Check if there is actually any data to update
+    if (Object.keys(dataToUpdate).length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "No fields provided to update." });
+    }
+
+    // 4. Perform the database update
+    const updatedAddonCategory = await database
+      .update(addon)
+      .set(dataToUpdate)
+      .where(eq(addon.id, id))
+      .returning();
+
+    // 5. Handle case where the item was not found
+    if (updatedAddonCategory.length === 0) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Addon Category not found" });
+    }
+
+    // 6. Send the successful response
+    res.status(status.OK).json({
+      message: "Addon Category updated successfully",
+      data: updatedAddonCategory[0],
+    });
+  } catch (error) {
+    logger.error("Failed to update addon category:", error);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "An internal server error occurred." });
   }
 };
