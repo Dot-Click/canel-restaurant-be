@@ -165,9 +165,9 @@ export const categoryrelation = relations(category, ({ many }) => ({
 // TODO Schema & Relations of Orders
 export const orders = pgTable("orders", {
   id: uuid().primaryKey(),
-  status: varchar("status", { enum: ["pending", "completed"] }).default(
-    "pending"
-  ),
+  status: varchar("status", {
+    enum: ["pending", "accepted", "on_the_way", "delivered", "cancelled"],
+  }).default("pending"),
   location: varchar("location").notNull(),
   name: varchar("name").notNull(),
   phoneNumber: varchar("phone_number").notNull(),
@@ -183,6 +183,10 @@ export const orders = pgTable("orders", {
   riderId: varchar("rider_id", { length: 255 }).references(() => users.id, {
     onDelete: "set null",
   }),
+  acceptedAt: timestamp("accepted_at"),
+  pickedUpAt: timestamp("picked_up_at"),
+  deliveredAt: timestamp("delivered_at"),
+  cancelledAt: timestamp("cancelled_at"),
   ...timeStamps,
 });
 

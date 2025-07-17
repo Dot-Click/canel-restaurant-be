@@ -17,7 +17,7 @@ addonItemsRoutes.post(
   createAddonItem
 );
 addonItemsRoutes.post(
-  "/delete-addonitem",
+  "/delete-addonitem/:id",
   protectRoute,
   checkPermission("delete addon item"),
   deleteAddonItem

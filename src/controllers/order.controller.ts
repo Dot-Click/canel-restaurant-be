@@ -2,9 +2,8 @@ import { status } from "http-status";
 import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { cart, cartItems, orderItems, orders, users } from "@/schema/schema";
-// import { auth } from "@/lib/auth";
 
 export const insertController = async (req: Request, res: Response) => {
   const { cartId, ...formData } = req.body;
@@ -334,6 +333,7 @@ export const createPosOrderController = async (req: Request, res: Response) => {
   }
 };
 
+// Riders related orders.....
 export const assignRiderController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // The Order ID
@@ -382,5 +382,185 @@ export const assignRiderController = async (req: Request, res: Response) => {
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
+  }
+};
+
+export const acceptOrderController = async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const currentUser = req.user;
+
+    if (!currentUser?.role) {
+      return res
+        .status(status.FORBIDDEN)
+        .json({ message: "Forbidden. Access denied." });
+    }
+
+    const role = currentUser.role.toLowerCase();
+
+    if (!["admin", "manager", "rider"].includes(role)) {
+      return res
+        .status(status.FORBIDDEN)
+        .json({ message: "Forbidden. Insufficient privileges." });
+    }
+
+    let riderToAssignId: string;
+
+    if (currentUser?.role?.toLowerCase() === "admin") {
+      const { riderId } = req.body;
+      if (!riderId) {
+        return res
+          .status(status.BAD_REQUEST)
+          .json({ message: "Rider ID is required for admin assignment." });
+      }
+
+      const riderExists = await database.query.users.findFirst({
+        where: and(eq(users.id, riderId), eq(users.role, "rider")),
+      });
+      if (!riderExists) {
+        return res
+          .status(status.NOT_FOUND)
+          .json({ message: "The specified rider was not found." });
+      }
+
+      riderToAssignId = riderId;
+    } else {
+      riderToAssignId = currentUser.id;
+    }
+
+    const [orderToUpdate] = await database
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+
+    if (!orderToUpdate) {
+      return res.status(status.NOT_FOUND).json({ message: "Order not found." });
+    }
+
+    if (orderToUpdate.status !== "pending") {
+      return res.status(status.CONFLICT).json({
+        message: `This order cannot be accepted. Its current status is "${orderToUpdate.status}".`,
+      });
+    }
+
+    const [updatedOrder] = await database
+      .update(orders)
+      .set({
+        status: "accepted",
+        riderId: riderToAssignId,
+        acceptedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return res.status(status.OK).json({
+      message: "Order accepted and assigned successfully!",
+      data: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Error in acceptOrderController:", error);
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "An internal server error occurred." });
+  }
+};
+
+export const getRiderOrdersController = async (req: Request, res: Response) => {
+  try {
+    const rider = req.user;
+
+    if (!rider) {
+      return res
+        .status(status.UNAUTHORIZED)
+        .json({ message: "Unauthorized. Please log in." });
+    }
+
+    if (rider?.role?.toLowerCase() !== "rider") {
+      return res
+        .status(status.FORBIDDEN)
+        .json({ message: "Forbidden. This action is for riders only." });
+    }
+
+    const riderOrders = await database.query.orders.findMany({
+      where: and(
+        eq(orders.riderId, rider.id),
+
+        inArray(orders.status, ["accepted", "on_the_way"])
+      ),
+
+      with: {
+        branch: true,
+        user: true,
+        orderItems: {
+          with: {
+            product: true,
+          },
+        },
+      },
+
+      orderBy: [desc(orders.createdAt)],
+    });
+
+    return res.status(status.OK).json({
+      message: "Rider's active orders fetched successfully.",
+      data: riderOrders,
+    });
+  } catch (error) {
+    console.error("Error fetching rider's orders:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An internal server error occurred while fetching orders.",
+    });
+  }
+};
+
+export const getOrdersByRiderIdController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { riderId } = req.params;
+
+    if (!riderId) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Rider ID is required." });
+    }
+
+    const riderExists = await database.query.users.findFirst({
+      where: and(eq(users.id, riderId), eq(users.role, "rider")),
+    });
+
+    if (!riderExists) {
+      return res.status(status.NOT_FOUND).json({ message: "Rider not found." });
+    }
+
+    const assignedOrders = await database.query.orders.findMany({
+      where: and(
+        eq(orders.riderId, riderId),
+
+        inArray(orders.status, ["accepted", "on_the_way"])
+      ),
+      with: {
+        branch: true,
+        user: true,
+        orderItems: {
+          with: {
+            product: true,
+          },
+        },
+      },
+      orderBy: [desc(orders.acceptedAt)],
+    });
+
+    return res.status(status.OK).json({
+      message: "Orders for the specified rider fetched successfully.",
+      data: assignedOrders,
+    });
+  } catch (error) {
+    console.error("Error fetching orders for rider:", error);
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "An internal server error occurred." });
   }
 };

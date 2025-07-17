@@ -4,8 +4,11 @@ import {
   deleteController,
   fetchController,
   getOrderByIdController,
+  getRiderOrdersController,
   insertController,
   updateController,
+  acceptOrderController,
+  getOrdersByRiderIdController,
 } from "@/controllers/order.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
 import { checkPermission } from "@/middlewares/checkpermission.middleware";
@@ -44,6 +47,11 @@ orderRoutes.patch(
   assignRiderController
 );
 
+orderRoutes.patch("/:orderId/accept", protectRoute, acceptOrderController);
+
+orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
+
+orderRoutes.get("/me/orders", protectRoute, getRiderOrdersController);
 orderRoutes.get("/fetch-order", protectRoute, fetchController);
 orderRoutes.get("/user-orders/:id", protectRoute, getOrderByIdController);
 

@@ -23,6 +23,7 @@ export const fetchUserController = async (req: Request, res: Response) => {
         id: true,
         fullName: true,
         email: true,
+        role: true,
       },
     });
 
