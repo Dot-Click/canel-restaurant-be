@@ -16,12 +16,8 @@ import { Router } from "express";
 
 const orderRoutes = Router();
 
-orderRoutes.post(
-  "/create-order",
-  protectRoute,
-  checkPermission("add order"),
-  insertController
-);
+orderRoutes.post("/create-order", protectRoute, insertController);
+
 orderRoutes.post(
   "/delete-order/:id",
   protectRoute,
