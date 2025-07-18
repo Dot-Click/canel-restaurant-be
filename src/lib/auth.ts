@@ -22,7 +22,7 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  trustedOrigins: [env.FRONTEND_DOMAIN || "http://localhost:5000"],
+  trustedOrigins: [env.FRONTEND_DOMAIN],
   secret: env.COOKIE_SECRET,
   session: {
     expiresIn: 60 * 60 * 24 * 7,

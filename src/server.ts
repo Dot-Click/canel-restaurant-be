@@ -72,8 +72,7 @@ app.use(cookieParser());
 io.use(authorizeUser);
 
 app.use(morgan("dev"));
-// app.all("/api/auth/*", toNodeHandler(auth));
-app.all("/api/auth/*splat", toNodeHandler(auth));
+app.all("/api/auth/*", toNodeHandler(auth));
 app.use(express.json());
 
 // app.use(throttle("default"));
