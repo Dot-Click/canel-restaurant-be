@@ -13,14 +13,6 @@ export const admin = ac.newRole({
   ...adminAc.statements,
 });
 
-export const manager = ac.newRole({
-  project: ["create", "share", "update", "delete"],
-});
+export const manager = ac.newRole({});
 
-export const subadmin = ac.newRole({
-  project: ["create", "share", "update", "delete"],
-});
-
-export const rider = ac.newRole({
-  project: ["create", "share", "update", "delete"],
-});
+export const rider = ac.newRole({});
