@@ -4,8 +4,8 @@ import {
   TransactionalEmailsApiApiKeys,
   ContactsApi,
   ContactsApiApiKeys,
-  TransactionalSMSApi, // This is the correct name
-  TransactionalSMSApiApiKeys, // This is the correct name
+  TransactionalSMSApi,
+  TransactionalSMSApiApiKeys,
 } from "@sendinblue/client";
 import { config } from "dotenv";
 config();

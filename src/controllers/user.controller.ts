@@ -3,7 +3,7 @@ import { logger } from "@/utils/logger.util";
 import { status } from "http-status";
 import { database } from "@/configs/connection.config";
 import { users } from "@/schema/schema";
-import { eq, not, like } from "drizzle-orm";
+import { eq, not, like, inArray } from "drizzle-orm";
 import { assignPermissionsSchema, staffIdParamSchema } from "@/schema/schema";
 import { z } from "zod";
 
@@ -173,5 +173,47 @@ export const assignPermissionsController = async (
     return res.status(status.INTERNAL_SERVER_ERROR).json({
       message: "Failed to assign permissions.",
     });
+  }
+};
+
+export const getRolePermissions = async (_req: Request, res: Response) => {
+  try {
+    const staffMembers = await database.query.users.findMany({
+      where: inArray(users.role, ["manager", "rider"]),
+      with: {
+        branch: {
+          columns: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    const responseData = staffMembers.map((staff) => {
+      if (!staff.role) return res.status(status.UNPROCESSABLE_ENTITY);
+
+      const formattedRole =
+        staff?.role?.charAt(0).toUpperCase() + staff?.role.slice(1);
+
+      const permissionCount = staff.permissions ? staff.permissions.length : 0;
+
+      return {
+        id: staff.id,
+        role: formattedRole,
+        branch: staff.branch ? staff.branch.name : "No Branch Assigned",
+        permissions: permissionCount,
+      };
+    });
+
+    return res.status(200).json({
+      message: "Role permissions fetched successfully",
+      data: responseData,
+    });
+  } catch (error) {
+    logger.error("Failed to fetch role permissions:", error);
+
+    return res
+      .status(500)
+      .json({ message: "An error occurred while fetching role permissions." });
   }
 };
