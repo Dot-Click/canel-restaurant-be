@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.scheduleRoute = void 0;
+const schedule_controller_1 = require("../controllers/schedule.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const checkpermission_middleware_1 = require("../middlewares/checkpermission.middleware");
+const express_1 = require("express");
+const scheduleRoute = (0, express_1.Router)();
+exports.scheduleRoute = scheduleRoute;
+scheduleRoute.post("/create-schedule", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("add bussiness hours"), schedule_controller_1.createOrUpdateBranchScheduleController);
+scheduleRoute.patch("/toggle", auth_middleware_1.protectRoute, schedule_controller_1.toggleSchedule);
+scheduleRoute.get("/:id", auth_middleware_1.protectRoute, schedule_controller_1.getSchedules);

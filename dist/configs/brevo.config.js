@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.brevoSmsApi = exports.brevoContactsApi = exports.brevoTransactionApi = void 0;
+const client_1 = require("@sendinblue/client");
+const dotenv_1 = require("dotenv");
+(0, dotenv_1.config)();
+exports.brevoTransactionApi = new client_1.TransactionalEmailsApi();
+exports.brevoTransactionApi.setApiKey(client_1.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+exports.brevoContactsApi = new client_1.ContactsApi();
+exports.brevoContactsApi.setApiKey(client_1.ContactsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+exports.brevoSmsApi = new client_1.TransactionalSMSApi();
+exports.brevoSmsApi.setApiKey(client_1.TransactionalSMSApiApiKeys.apiKey, process.env.BREVO_API_KEY);

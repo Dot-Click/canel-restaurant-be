@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.categoryRoutes = void 0;
+const category_controller_1 = require("../controllers/category.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const checkpermission_middleware_1 = require("../middlewares/checkpermission.middleware");
+const express_1 = require("express");
+const categoryRoutes = (0, express_1.Router)();
+exports.categoryRoutes = categoryRoutes;
+categoryRoutes.post("/create-category", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("add category"), category_controller_1.insertController);
+categoryRoutes.post("/delete-category/:id", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("delete category"), category_controller_1.deleteController);
+categoryRoutes.patch("/update-category/:id", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("update category"), category_controller_1.updateController);
+categoryRoutes.get("/fetch-category", category_controller_1.fetchController);

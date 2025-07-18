@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.rider = exports.manager = exports.admin = exports.ac = exports.statement = void 0;
+const access_1 = require("better-auth/plugins/access");
+const access_2 = require("better-auth/plugins/admin/access");
+exports.statement = Object.assign(Object.assign({}, access_2.defaultStatements), { project: ["create", "share", "update", "delete"] });
+exports.ac = (0, access_1.createAccessControl)(exports.statement);
+exports.admin = exports.ac.newRole(Object.assign({ project: ["create", "update"] }, access_2.adminAc.statements));
+exports.manager = exports.ac.newRole({});
+exports.rider = exports.ac.newRole({});

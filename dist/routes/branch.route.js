@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const express_1 = require("express");
+const branch_controller_1 = require("../controllers/branch.controller");
+const checkpermission_middleware_1 = require("../middlewares/checkpermission.middleware");
+const branchRouter = (0, express_1.Router)();
+branchRouter.post("/create-branch", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("add branch"), branch_controller_1.addBranchController);
+branchRouter.patch("/update-branch/:id", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("update branch"), branch_controller_1.updateBranchController);
+branchRouter.delete("/delete-branch/:id", auth_middleware_1.protectRoute, (0, checkpermission_middleware_1.checkPermission)("delete branch"), branch_controller_1.removeBranchController);
+branchRouter.get("/fetch-all-branch", branch_controller_1.fetchAllBranchesController);
+branchRouter.get("/fetch-branch", branch_controller_1.fetchSingleBranchController);
+branchRouter.get("/cities", branch_controller_1.fetchCitiesController);
+branchRouter.get("/areas/:cityName", branch_controller_1.fetchAreasForCityController);
+exports.default = branchRouter;
