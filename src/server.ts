@@ -35,6 +35,12 @@ const app = express();
 const httpServer = createServer(app);
 const port = Number(process.env.PORT) || 3000;
 // const sessionMiddleware = session(sessionOptions);
+
+console.log(
+  "[SERVER STARTUP] FRONTEND_DOMAIN is:",
+  process.env.FRONTEND_DOMAIN
+);
+
 const isProduction = app.get("env") === "production";
 const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_DOMAIN,
