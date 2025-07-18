@@ -2,7 +2,7 @@ import { prepareProductionStance } from "./configs/prepareproductionstance.confi
 import { assignSocketToReqIO } from "@/middlewares/socket.middleware";
 import { prepareMigration } from "./utils/preparemigration.util";
 import { authorizeUser } from "@/middlewares/socket.middleware";
-import { throttle } from "./middlewares/throttle.middleware";
+// import { throttle } from "./middlewares/throttle.middleware";
 import { registerEvents } from "@/utils/registerevents.util";
 import { sessionOptions } from "./configs/session.config";
 import { productRoutes } from "./routes/product.route";
@@ -68,9 +68,11 @@ app.use(cookieParser());
 io.use(authorizeUser);
 
 app.use(morgan("dev"));
-app.all("/api/auth/*", toNodeHandler(auth));
+// app.all("/api/auth/*", toNodeHandler(auth));
+app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
-app.use(throttle("default"));
+
+// app.use(throttle("default"));
 
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);

@@ -15,6 +15,8 @@ import { signupTemplate } from "@/utils/brevo";
 
 dotenv.config();
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export const auth = betterAuth({
   database: drizzleAdapter(database, {
     provider: "pg",
@@ -23,9 +25,23 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.FRONTEND_DOMAIN || "http://localhost:5000"],
   secret: env.COOKIE_SECRET,
   session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
+    },
+  },
+  advanced: {
+    useSecureCookies: isProduction,
+    cookies: {
+      session_token: {
+        attributes: {
+          sameSite: isProduction ? "none" : "lax",
+          httpOnly: isProduction,
+          secure: isProduction,
+        },
+      },
     },
   },
   emailAndPassword: {
@@ -39,36 +55,6 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
-  // emailVerification: {
-  //   enabled: true,
-  //   async sendVerificationEmail({ token, user }) {
-  //     try {
-  //       console.log("EMail verification has been hit:::"),
-  //         await brevoTransactionApi.sendTransacEmail({
-  //           subject: "Welcome! Please Verify Your Email",
-  //           // Use the correct template for signing up
-  //           htmlContent: signupTemplate({
-  //             verificationCode: token,
-  //             userName: user.name!,
-  //             email: user.email
-  //           }),
-  //           sender: {
-  //             email: process.env.BREVO_SENDER_EMAIL,
-  //             name: "Canel Restaurant",
-  //           },
-  //           to: [{ email: user.email, name: user.name! }],
-  //           replyTo: {
-  //             email: process.env.BREVO_SENDER_EMAIL!,
-  //             name: "Canel Restaurant",
-  //           },
-  //         });
-  //     } catch (error) {
-  //       console.error("Failed to send verification email:", error);
-  //       // It's good practice to re-throw the error so better-auth can handle it if needed
-  //       throw new Error("Failed to send verification email.");
-  //     }
-  //   },
-  // },
   plugins: [
     adminPlugin({
       ac,
