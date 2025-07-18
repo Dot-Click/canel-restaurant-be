@@ -22,7 +22,7 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  trustedOrigins: [process.env.FRONTEND_DOMAIN || "http://localhost:5000"],
+  trustedOrigins: [env.FRONTEND_DOMAIN || "http://localhost:5000"],
   secret: env.COOKIE_SECRET,
   session: {
     expiresIn: 60 * 60 * 24 * 7,
@@ -50,8 +50,8 @@ export const auth = betterAuth({
   socialProviders: {
     google: {
       prompt: "select_account",
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: env.GOOGLE_CLIENT_ID as string,
+      clientSecret: env.GOOGLE_CLIENT_SECRET as string,
       enabled: true,
     },
   },
@@ -75,12 +75,12 @@ export const auth = betterAuth({
               email: email,
             }),
             sender: {
-              email: process.env.BREVO_SENDER_EMAIL,
+              email: env.BREVO_SENDER_EMAIL,
               name: "Canel Restaurant",
             },
             to: [{ email, name: email.split("@")[0] }],
             replyTo: {
-              email: process.env.BREVO_SENDER_EMAIL!,
+              email: env.BREVO_SENDER_EMAIL!,
               name: "Canel Restaurant",
             },
           });
@@ -96,7 +96,7 @@ export const auth = betterAuth({
           console.log(`Sending OTP ${code} to phone number ${phoneNumber}`);
 
           await brevoSmsApi.sendTransacSms({
-            sender: process.env.BREVO_SMS_SENDER as string,
+            sender: env.BREVO_SMS_SENDER as string,
             recipient: phoneNumber,
             content: `Your Canel Restaurant verification code is: ${code}`,
           });
@@ -104,7 +104,6 @@ export const auth = betterAuth({
           console.log("Successfully sent phone number OTP.");
         } catch (error) {
           console.error("Failed to send phone number OTP:", error);
-          // Re-throw the error so better-auth can handle the failure
           throw new Error("Failed to send phone number OTP.");
         }
       },

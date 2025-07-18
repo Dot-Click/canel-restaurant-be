@@ -4,13 +4,13 @@ import { z } from "zod";
 config();
 
 const schemaObject = z.object({
-  // CLOUDINARY_API_SECRET: z.string(),
-  // CLOUDINARY_CLOUD_NAME: z.string(),
-  // GOOGLE_CLIENT_SECRET: z.string(),
-  // GOOGLE_CLIENT_ID: z.string(),
-  // BREVO_API_KEY: z.string(),
-  UPSTASH_REDIS_REST_TOKEN: z.string(),
-  UPSTASH_REDIS_REST_URL: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
+  GOOGLE_CLIENT_ID: z.string(),
+  BREVO_API_KEY: z.string(),
+  BREVO_SMS_SENDER: z.string(),
+  BREVO_SENDER_EMAIL: z.string(),
   BETTER_AUTH_SECRET: z.string(),
   CLOUDINARY_API_KEY: z.string(),
   BETTER_AUTH_URL: z.string(),

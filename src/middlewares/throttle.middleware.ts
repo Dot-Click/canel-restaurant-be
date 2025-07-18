@@ -4,12 +4,13 @@ import { database, connection } from "../configs/connection.config";
 import { throttleinsight } from "@/schema/schema";
 import type { RequestHandler } from "express";
 import { status } from "http-status";
+import { env } from "@/utils/env.utils";
 interface IOverRideOptions
   extends Omit<IRateLimiterStoreNoAutoExpiryOptions, "storeClient"> {
   errorMessage?: string;
 }
 const options: IRateLimiterStoreNoAutoExpiryOptions = {
-  dbName: process.env.database,
+  dbName: env.database,
   storeClient: connection,
   tableName: "throttle",
   blockDuration: 10, // seconds

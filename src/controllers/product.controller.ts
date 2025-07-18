@@ -27,29 +27,26 @@ export const insertController = async (req: Request, res: Response) => {
 
     const [formData, files] = await form.parse<any, "productImage">(req);
     const productImage = files.productImage?.[0];
+
     console.log(formData);
+
     let addonItemIds: string[] = [];
+
     if (formData.addonItemIds) {
       addonItemIds = Array.isArray(formData.addonItemIds)
         ? formData.addonItemIds
         : [formData.addonItemIds];
     }
 
-    // STEP 3: Extract the rest of the fields using your helper
     const otherFields =
       extractFormFields<Omit<FormData, "addonItemIds">>(formData);
 
-    // STEP 4: Combine all fields into a single payload for validation
     const payloadToValidate = {
       ...otherFields,
       addonItemIds,
     };
 
-    // STEP 5: Validate the combined payload with the updated Zod schema
     const { data, error } = productInsertSchema.safeParse(payloadToValidate);
-
-    console.log("This is the data", data);
-    console.log("This is the request body", otherFields);
 
     if (!data) {
       logger.error("Validation failed", error);
@@ -59,7 +56,6 @@ export const insertController = async (req: Request, res: Response) => {
       });
     }
 
-    // STEP 6: Handle image upload (No changes here)
     if (!productImage) {
       return res
         .status(status.UNPROCESSABLE_ENTITY)
