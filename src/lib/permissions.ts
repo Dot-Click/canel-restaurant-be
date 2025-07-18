@@ -13,6 +13,6 @@ export const admin = ac.newRole({
   ...adminAc.statements,
 });
 
-export const manager = ac.newRole({});
+export const manager = ac.newRole({}) as any;
 
-export const rider = ac.newRole({});
+export const rider = ac.newRole({}) as any;

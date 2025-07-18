@@ -8,7 +8,7 @@ import {
   phoneNumber,
 } from "better-auth/plugins";
 import * as schema from "@/schema/schema";
-import { ac, admin, manager, rider, subadmin } from "./permissions";
+import { ac, admin, manager, rider } from "./permissions";
 import dotenv from "dotenv";
 import { brevoTransactionApi, brevoSmsApi } from "@/configs/brevo.config";
 import { signupTemplate } from "@/utils/brevo";
@@ -61,7 +61,6 @@ export const auth = betterAuth({
       roles: {
         admin,
         manager,
-        subadmin,
         rider,
       },
     }),
