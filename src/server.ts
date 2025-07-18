@@ -79,7 +79,13 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 
 // app.use(throttle("default"));
-
+// Add this route to handle requests to the root URL
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    status: "online",
+    message: "Welcome to the Canel Restaurant API!",
+  });
+});
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);
 app.use("/api/order/", orderRoutes);
