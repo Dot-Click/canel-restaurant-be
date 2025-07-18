@@ -16,7 +16,6 @@ const schemaObject = z.object({
   BETTER_AUTH_URL: z.string(),
   FRONTEND_DOMAIN: z.string(),
   CONNECTION_URL: z.string(),
-  BACKEND_DOMAIN: z.string(),
   COOKIE_SECRET: z.string(),
   JWT_SECRET: z.string(),
   database: z.string(),
