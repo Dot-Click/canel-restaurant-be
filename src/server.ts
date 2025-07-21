@@ -95,7 +95,6 @@ app.use("/api/branding/", brandingRoute);
 app.use("/api/schedule/", scheduleRoute);
 app.use("/api/users/", userRoute);
 app.use("/api/broadcast/", smsRoute);
-
 app.use(unknownRoutes);
 
 httpServer.listen(port as number, () => {

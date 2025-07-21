@@ -228,6 +228,16 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   }),
 }));
 
+// TODO Global order status:
+export const globalOrderStatus = pgTable("global_order_status", {
+  id: uuid().primaryKey(),
+  isPaused: boolean("is_paused").default(false).notNull(), // true = orders globally paused
+  reason: text("reason"),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
 // TODO Schema & Relations of Carts
 export const cart = pgTable("cart", {
   id: uuid().primaryKey(),
@@ -329,9 +339,11 @@ export const branch = pgTable("branch", {
   }).notNull(), //separate city table
   // state: varchar("state"),
   areas: json("areas").$type<string[]>(),
-  status: varchar("status", {
-    enum: ["open", "closed"],
-  }).default("open"),
+  // status: varchar("status", {
+  //   enum: ["open", "closed"],
+  // }).default("open"),
+  isPaused: boolean("is_paused").default(false).notNull(),
+  pauseReason: text("pause_reason"),
   ...timeStamps,
 });
 

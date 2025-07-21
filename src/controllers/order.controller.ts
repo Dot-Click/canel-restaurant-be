@@ -1,25 +1,72 @@
-import { status } from "http-status";
 import { Request, Response } from "express";
-import { logger } from "@/utils/logger.util";
-import { database } from "@/configs/connection.config";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { cart, cartItems, orderItems, orders, users } from "@/schema/schema";
+import { database } from "@/configs/connection.config";
+import {
+  cartItems,
+  globalOrderStatus,
+  orders,
+  orderItems,
+  branch,
+  // products,
+  users,
+  cart,
+} from "@/schema/schema";
+import { logger } from "@/utils/logger.util";
+import status from "http-status";
 
 export const insertController = async (req: Request, res: Response) => {
-  const { cartId, ...formData } = req.body;
-  console.log(req.body);
+  const { cartId, branchId, ...formData } = req.body;
   const userId = req.user!.id;
 
-  console.log("This is the request body", req.body);
-
-  if (!cartId) {
+  if (!cartId || !branchId) {
     return res
       .status(status.BAD_REQUEST)
-      .json({ message: "Cart ID is required." });
+      .json({ message: "Cart ID and Branch ID are required." });
   }
 
   try {
     const newOrder = await database.transaction(async (tx) => {
+      // 1. Check for global pause
+      const [globalSetting] = await tx
+        .select()
+        .from(globalOrderStatus)
+        .limit(1);
+      if (globalSetting?.isPaused) {
+        throw new Error(
+          globalSetting.reason ||
+            "Ordering is temporarily paused. Please try again later."
+        );
+      }
+
+      // 2. Check for branch-specific pause
+      const results = await tx
+        .select({
+          isPaused: branch.isPaused,
+          pauseReason: branch.pauseReason,
+        })
+        .from(branch)
+        .where(eq(branch.id, branchId))
+        .limit(1);
+
+      // Get the first element from the array
+      const selectedBranch = results[0];
+
+      if (!selectedBranch) {
+        throw new Error("Branch not found.");
+      }
+
+      if (!selectedBranch) {
+        throw new Error("Branch not found.");
+      }
+
+      if (selectedBranch.isPaused) {
+        throw new Error(
+          selectedBranch.pauseReason ||
+            "This branch is not accepting orders right now."
+        );
+      }
+
+      // 3. Check for items in the cart
       const itemsInCart = await tx.query.cartItems.findMany({
         where: eq(cartItems.cartId, cartId),
         with: {
@@ -31,33 +78,35 @@ export const insertController = async (req: Request, res: Response) => {
         throw new Error("Cannot place an order with an empty cart.");
       }
 
+      // 4. Create the order
       const [insertedOrder] = await tx
         .insert(orders)
         .values({
           ...formData,
           userId,
+          branchId,
         })
         .returning();
 
       const newOrderItems = itemsInCart.map((item) => {
         if (!item.product) {
           throw new Error(
-            `Product with ID ${item.productId} not found for an item in the cart. Order cannot be placed.`
+            `Product with ID ${item.productId} not found. Order cannot be placed.`
           );
         }
-
         return {
           orderId: insertedOrder.id,
           productId: item.productId,
           productName: item.product.name,
           quantity: item.quantity,
           price: item.product.price,
-          instructions: item.instructions || "", // Ensure instructions are included
+          instructions: item.instructions || "",
         };
       });
 
       await tx.insert(orderItems).values(newOrderItems);
 
+      // 5. Clear the cart
       await tx.delete(cartItems).where(eq(cartItems.cartId, cartId));
 
       return insertedOrder;

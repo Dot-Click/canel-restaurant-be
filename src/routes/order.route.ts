@@ -10,6 +10,7 @@ import {
   acceptOrderController,
   getOrdersByRiderIdController,
 } from "@/controllers/order.controller";
+import { setBranchPauseStatus } from "@/controllers/pause.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
 import { checkPermission } from "@/middlewares/checkpermission.middleware";
 import { Router } from "express";
@@ -42,6 +43,8 @@ orderRoutes.patch(
   checkPermission("update order"),
   assignRiderController
 );
+
+orderRoutes.patch("/pause/branch/:id", setBranchPauseStatus);
 
 orderRoutes.patch("/:orderId/accept", protectRoute, acceptOrderController);
 
