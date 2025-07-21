@@ -30,6 +30,7 @@ import brandingRoute from "./routes/branding.route";
 import { scheduleRoute } from "./routes/schedule.route";
 import { userRoute } from "./routes/user.route";
 import { env } from "./utils/env.utils";
+import { smsRoute } from "./routes/sms.route";
 config();
 
 const app = express();
@@ -93,6 +94,7 @@ app.use("/api/addon/", addonItemsRoutes);
 app.use("/api/branding/", brandingRoute);
 app.use("/api/schedule/", scheduleRoute);
 app.use("/api/users/", userRoute);
+app.use("/api/broadcast/", smsRoute);
 
 app.use(unknownRoutes);
 

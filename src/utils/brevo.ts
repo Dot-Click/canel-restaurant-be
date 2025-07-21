@@ -4,7 +4,7 @@ interface BaseProps {
   email: string;
 }
 
-import { brevoSmsApi } from "@/configs/brevo.config";
+// import { mailgunClient } from "@/configs/mailgun.config";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -48,28 +48,28 @@ export const signupTemplate = ({
   `;
 };
 
-interface SmsProps {
-  recipient: string;
-  content: string;
-}
+// interface SmsProps {
+//   recipient: string;
+//   content: string;
+// }
 
-export const sendTransacSms = async ({ recipient, content }: SmsProps) => {
-  try {
-    console.log(`Preparing to send SMS to ${recipient}`);
+// export const sendTransacSms = async ({ recipient, content }: SmsProps) => {
+//   try {
+//     console.log(`Preparing to send SMS to ${recipient}`);
 
-    await brevoSmsApi.sendTransacSms({
-      sender: process.env.BREVO_SMS_SENDER as string,
-      recipient,
-      content,
-    });
+//     await mailgunClient.sendTransacSms({
+//       sender: process.env.BREVO_SMS_SENDER as string,
+//       recipient,
+//       content,
+//     });
 
-    console.log("Successfully sent transactional SMS.");
-  } catch (error) {
-    console.error("Error sending transactional SMS:", error);
-    // Re-throw the error to be handled by the calling function
-    throw new Error("Failed to send transactional SMS.");
-  }
-};
+//     console.log("Successfully sent transactional SMS.");
+//   } catch (error) {
+//     console.error("Error sending transactional SMS:", error);
+//     // Re-throw the error to be handled by the calling function
+//     throw new Error("Failed to send transactional SMS.");
+//   }
+// };
 
 // export const generalVerificationTemplate = ({
 //   purpose,

@@ -6,11 +6,12 @@ import {
   admin as adminPlugin,
   emailOTP,
   phoneNumber,
+  // phoneNumber,
 } from "better-auth/plugins";
 import * as schema from "@/schema/schema";
 import { ac, admin, manager, rider } from "./permissions";
 import dotenv from "dotenv";
-import { brevoTransactionApi, brevoSmsApi } from "@/configs/brevo.config";
+import { sendgridClient, twilioClient } from "@/configs/mailgun.config";
 import { signupTemplate } from "@/utils/brevo";
 
 dotenv.config();
@@ -67,41 +68,54 @@ export const auth = betterAuth({
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
         try {
-          await brevoTransactionApi.sendTransacEmail({
+          const msg = {
+            to: email,
+            from: {
+              email: env.SENDGRID_SENDER_EMAIL!,
+              name: env.SENDGRID_SENDER_NAME!,
+            },
             subject: "Welcome! Please Verify Your Email",
-            htmlContent: signupTemplate({
+            html: signupTemplate({
               verificationCode: otp,
               userName: email.split("@")[0],
               email: email,
             }),
-            sender: {
-              email: env.BREVO_SENDER_EMAIL,
-              name: "Canel Restaurant",
-            },
-            to: [{ email, name: email.split("@")[0] }],
-            replyTo: {
-              email: env.BREVO_SENDER_EMAIL!,
-              name: "Canel Restaurant",
-            },
-          });
+            replyTo: env.SENDGRID_SENDER_EMAIL!,
+          };
+
+          await sendgridClient.send(msg);
+          console.log("Successfully sent verification email via SendGrid.");
         } catch (error) {
           console.error("Failed to send verification email:", error);
+          // if (error?.response) {
+          //   console.error(error.response.body);
+          // }
           throw new Error("Failed to send verification email.");
         }
       },
     }),
+    // auth.ts -> plugins: [ ... phoneNumber({ ... }) ]
+
     phoneNumber({
       async sendOTP({ phoneNumber, code }) {
         try {
-          console.log(`Sending OTP ${code} to phone number ${phoneNumber}`);
+          // ADD THIS LINE to remove any spaces or weird characters
+          const sanitizedPhoneNumber = phoneNumber
+            .replace(/\s+/g, "")
+            .replace(/[^0-9+]/g, "");
 
-          await brevoSmsApi.sendTransacSms({
-            sender: env.BREVO_SMS_SENDER as string,
-            recipient: phoneNumber,
-            content: `Your Canel Restaurant verification code is: ${code}`,
+          console.log(
+            `Sending OTP ${code} to sanitized phone number ${sanitizedPhoneNumber}`
+          );
+
+          await twilioClient.messages.create({
+            body: `Your Canel Restaurant verification code is: ${code}`,
+            from: env.TWILIO_PHONE_NUMBER!,
+            // USE THE SANITIZED VARIABLE HERE
+            to: sanitizedPhoneNumber,
           });
 
-          console.log("Successfully sent phone number OTP.");
+          console.log("Successfully sent phone number OTP via Twilio.");
         } catch (error) {
           console.error("Failed to send phone number OTP:", error);
           throw new Error("Failed to send phone number OTP.");
