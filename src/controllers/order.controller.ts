@@ -18,6 +18,8 @@ export const insertController = async (req: Request, res: Response) => {
   const { cartId, branchId, ...formData } = req.body;
   const userId = req.user!.id;
 
+  console.log("THis is the request body:-", req.body);
+
   if (!cartId || !branchId) {
     return res
       .status(status.BAD_REQUEST)
@@ -65,7 +67,7 @@ export const insertController = async (req: Request, res: Response) => {
             "This branch is not accepting orders right now."
         );
       }
-
+      console.log("hello bruhhh");
       // 3. Check for items in the cart
       const itemsInCart = await tx.query.cartItems.findMany({
         where: eq(cartItems.cartId, cartId),

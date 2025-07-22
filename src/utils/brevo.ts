@@ -1,13 +1,14 @@
+import dotenv from "dotenv";
+// import { env } from "./env.utils";
+
+dotenv.config();
+
 interface BaseProps {
   verificationCode: string;
   userName: string;
   email: string;
 }
 
-// import { mailgunClient } from "@/configs/mailgun.config";
-import dotenv from "dotenv";
-
-dotenv.config();
 export const signupTemplate = ({
   userName,
   verificationCode,
@@ -48,43 +49,85 @@ export const signupTemplate = ({
   `;
 };
 
-// interface SmsProps {
-//   recipient: string;
-//   content: string;
-// }
+export const resetPasswordTemplate = ({
+  userName,
+  resetLink,
+}: {
+  userName: string;
+  resetLink: string;
+}) => {
+  const primaryColor = "#3B5545";
+  const accentColor = "#4C9F7B";
 
-// export const sendTransacSms = async ({ recipient, content }: SmsProps) => {
-//   try {
-//     console.log(`Preparing to send SMS to ${recipient}`);
-
-//     await mailgunClient.sendTransacSms({
-//       sender: process.env.BREVO_SMS_SENDER as string,
-//       recipient,
-//       content,
-//     });
-
-//     console.log("Successfully sent transactional SMS.");
-//   } catch (error) {
-//     console.error("Error sending transactional SMS:", error);
-//     // Re-throw the error to be handled by the calling function
-//     throw new Error("Failed to send transactional SMS.");
-//   }
-// };
-
-// export const generalVerificationTemplate = ({
-//   purpose,
-//   userName,
-//   verificationCode,
-// }: BaseProps & { purpose: string }) => {
-//   return `<div>
-
-//             <p style="font-size:20px">Hi ${userName},</p>
-//             <p>You're receiving this email because you requested to ${purpose} on Beat Feedback. Please use the following verification code to proceed:</p>
-//             <p>Verification Code</p>
-//             <p style="background: #FD9ED7; width: fit-content; padding: 7px 10px; border-radius: 10px; font-size:20px; margin-top: -10px">${verificationCode}</p>
-//             <p>If you did not make this request, please disregard this email.</p>
-//             <p style="margin-top: -13px">Best regards,</p>
-//             <p><span style="font-size:14px;">The verification code will expire in 5 minutes.&nbsp;</span></p>
-
-//             </div>`;
-// };
+  // const logoUrl = env.LOGO_IMAGE_URL;
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333333;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .button {
+            background-color: ${accentColor};
+            color: #ffffff;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            font-size: 12px;
+            color: #888888;
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333333;">
+        <div class="header" style="text-align: center; padding-bottom: 20px;">
+            <img src="/images/Logos/logo.png" alt="Canel Restaurant Logo" style="max-width: 120px;" />
+        </div>
+        <div class="content" style="background-color: #ffffff; padding: 40px; border-radius: 8px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <h1 style="color: ${primaryColor}; font-size: 24px;">Password Reset Request</h1>
+            <p style="font-size: 16px; line-height: 1.6;">Hello ${userName},</p>
+            <p style="font-size: 16px; line-height: 1.6;">We received a request to reset your password. If this wasn't you, you can safely ignore this email.</p>
+            <p style="font-size: 16px; line-height: 1.6;">Click the button below to set a new password:</p>
+            <a href="${resetLink}" class="button" style="background-color: ${accentColor}; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 20px;">Reset Your Password</a>
+            <p style="font-size: 14px; color: #888888; margin-top: 30px;">This link will expire in 1 hour.</p>
+        </div>
+        <div class="footer" style="text-align: center; padding-top: 20px; font-size: 12px; color: #888888;">
+            <p>Thank you for choosing Canel Restaurant.</p>
+            <p>© ${new Date().getFullYear()} Canel Restaurant. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};

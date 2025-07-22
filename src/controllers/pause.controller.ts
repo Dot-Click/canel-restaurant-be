@@ -57,9 +57,8 @@ export const setGlobalPauseStatus = async (req: Request, res: Response) => {
 };
 
 export const setBranchPauseStatus = async (req: Request, res: Response) => {
-  const { branchId } = req.params;
+  const { id } = req.params;
   const { isPaused, reason } = req.body;
-  //   const managerId = req.user!.id;
 
   if (typeof isPaused !== "boolean") {
     return res
@@ -71,7 +70,7 @@ export const setBranchPauseStatus = async (req: Request, res: Response) => {
     const [targetBranch] = await database
       .select({ id: branch.id })
       .from(branch)
-      .where(eq(branch.id, branchId))
+      .where(eq(branch.id, id))
       .limit(1);
 
     if (!targetBranch) {
@@ -86,7 +85,7 @@ export const setBranchPauseStatus = async (req: Request, res: Response) => {
         isPaused,
         pauseReason: isPaused ? reason : null,
       })
-      .where(eq(branch.id, branchId))
+      .where(eq(branch.id, id))
       .returning({
         id: branch.id,
         name: branch.name,

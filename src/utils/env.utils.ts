@@ -8,6 +8,7 @@ const schemaObject = z.object({
   CLOUDINARY_CLOUD_NAME: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CLIENT_ID: z.string(),
+  LOGO_IMAGE_URL: z.string(),
   MAILGUN_API_KEY: z.string(),
   MAILGUN_SMS_SENDER: z.string(),
   MAILGUN_SENDER_EMAIL: z.string(),

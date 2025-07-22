@@ -12,7 +12,7 @@ import * as schema from "@/schema/schema";
 import { ac, admin, manager, rider } from "./permissions";
 import dotenv from "dotenv";
 import { sendgridClient, twilioClient } from "@/configs/mailgun.config";
-import { signupTemplate } from "@/utils/brevo";
+import { resetPasswordTemplate, signupTemplate } from "@/utils/brevo";
 
 dotenv.config();
 
@@ -47,6 +47,33 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ token, user }: any) => {
+      try {
+        const resetLink = `${env.FRONTEND_DOMAIN}/reset-password?token=${token}`;
+
+        console.log(user);
+        const msg = {
+          to: user.email,
+          from: {
+            email: env.SENDGRID_SENDER_EMAIL!,
+            name: env.SENDGRID_SENDER_NAME!,
+          },
+          subject: "Your Password Reset Request",
+          html: resetPasswordTemplate({
+            resetLink: resetLink,
+            userName:
+              user.name || (user.email ? user.email.split("@")[0] : "user"),
+          }),
+          replyTo: env.SENDGRID_SENDER_EMAIL!,
+        };
+
+        await sendgridClient.send(msg);
+        console.log("Successfully sent password reset email via SendGrid.");
+      } catch (error) {
+        console.error("Failed to send password reset email:", error);
+        throw new Error("Failed to send password reset email.");
+      }
+    },
   },
   socialProviders: {
     google: {
@@ -94,8 +121,6 @@ export const auth = betterAuth({
         }
       },
     }),
-    // auth.ts -> plugins: [ ... phoneNumber({ ... }) ]
-
     phoneNumber({
       async sendOTP({ phoneNumber, code }) {
         try {
