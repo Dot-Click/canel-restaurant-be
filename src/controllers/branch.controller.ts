@@ -111,6 +111,7 @@ export const fetchAllBranchesController = async (
       .json({ message: "Branches fetched successfully", data: branches });
   } catch (error) {
     logger.error("Error fetching branches:", error);
+    console.log(error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "Could not fetch branches." });
