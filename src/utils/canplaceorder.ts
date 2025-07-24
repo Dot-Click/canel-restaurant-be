@@ -27,7 +27,7 @@ export const canPlaceOrder = async (branchId: string) => {
     };
   }
 
-  if (branchStatus.status === "closed") {
+  if (branchStatus.isPaused == true) {
     return {
       allowed: false,
       reason: branchStatus.pauseReason || "Orders are paused for this branch.",
