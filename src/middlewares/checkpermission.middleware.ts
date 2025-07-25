@@ -5,6 +5,7 @@ import { status } from "http-status";
 export const checkPermission = (requiredPermission: Permissions) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
+    // console.log("This is check permission:", user);
     if (!user) {
       return res.status(status.UNAUTHORIZED).json({
         message: "Authentication error. No user found on request.",

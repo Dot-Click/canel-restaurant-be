@@ -43,6 +43,7 @@ orderRoutes.patch(
 );
 orderRoutes.patch(
   "/:id/assign-rider",
+  protectRoute,
   checkPermission("update order"),
   assignRiderController
 );
