@@ -11,8 +11,9 @@ import {
 import * as schema from "@/schema/schema";
 import { ac, admin, manager, rider } from "./permissions";
 import dotenv from "dotenv";
-import { sendgridClient, twilioClient } from "@/configs/mailgun.config";
+import { sendgridClient } from "@/configs/mailgun.config";
 import { resetPasswordTemplate, signupTemplate } from "@/utils/brevo";
+import { sendWatiTemplateMessage } from "@/utils/watiService";
 
 dotenv.config();
 
@@ -124,25 +125,26 @@ export const auth = betterAuth({
     phoneNumber({
       async sendOTP({ phoneNumber, code }) {
         try {
-          // ADD THIS LINE to remove any spaces or weird characters
-          const sanitizedPhoneNumber = phoneNumber
-            .replace(/\s+/g, "")
-            .replace(/[^0-9+]/g, "");
+          const sanitizedPhoneNumber = phoneNumber.replace(/\D/g, "");
 
           console.log(
-            `Sending OTP ${code} to sanitized phone number ${sanitizedPhoneNumber}`
+            `Sending OTP ${code} to WhatsApp number ${sanitizedPhoneNumber} via WATI.`
           );
 
-          await twilioClient.messages.create({
-            body: `Your Canel Restaurant verification code is: ${code}`,
-            from: env.TWILIO_PHONE_NUMBER!,
-            // USE THE SANITIZED VARIABLE HERE
-            to: sanitizedPhoneNumber,
+          await sendWatiTemplateMessage({
+            recipientPhoneNumber: sanitizedPhoneNumber,
+            templateName: "testforwati",
+            parameters: [
+              {
+                name: "1",
+                value: code,
+              },
+            ],
           });
 
-          console.log("Successfully sent phone number OTP via Twilio.");
+          console.log("Successfully sent phone number OTP via WATI.");
         } catch (error) {
-          console.error("Failed to send phone number OTP:", error);
+          console.error("Failed to send phone number OTP via WATI:", error);
           throw new Error("Failed to send phone number OTP.");
         }
       },

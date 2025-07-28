@@ -183,6 +183,7 @@ export const orders = pgTable("orders", {
   riderId: varchar("rider_id", { length: 255 }).references(() => users.id, {
     onDelete: "set null",
   }),
+  source: text("source"),
   acceptedAt: timestamp("accepted_at"),
   pickedUpAt: timestamp("picked_up_at"),
   deliveredAt: timestamp("delivered_at"),

@@ -1,3 +1,4 @@
+import { handleIncomingMessage } from "./utils/chatbotservice";
 import { prepareProductionStance } from "./configs/prepareproductionstance.config";
 import { assignSocketToReqIO } from "@/middlewares/socket.middleware";
 import { prepareMigration } from "./utils/preparemigration.util";
@@ -31,6 +32,7 @@ import { scheduleRoute } from "./routes/schedule.route";
 import { userRoute } from "./routes/user.route";
 import { env } from "./utils/env.utils";
 import { smsRoute } from "./routes/sms.route";
+
 config();
 
 const app = express();
@@ -75,6 +77,28 @@ io.use(authorizeUser);
 app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
 app.use(express.json());
+
+app.post("/api/wati/webhook", async (req, res) => {
+  const incomingMessage = req.body;
+
+  // console.log("--- Received Webhook from WATI ---");
+  // console.log("This is the incoming message", req.body);
+  // console.log(JSON.stringify(incomingMessage, null, 2));
+  // console.log("------------------------------------");
+
+  if (!incomingMessage) {
+    return res.json("Error");
+  }
+
+  res.status(200).send("Message received.");
+
+  if (incomingMessage.text && incomingMessage.waId) {
+    await handleIncomingMessage({
+      senderId: incomingMessage.waId,
+      messageText: incomingMessage.text,
+    });
+  }
+});
 
 // app.use(throttle("default"));
 // Add this route to handle requests to the root URL
