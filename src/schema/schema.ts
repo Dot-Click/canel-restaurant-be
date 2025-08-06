@@ -50,6 +50,12 @@ export const users = pgTable("users", {
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   role: text("role").default("user"),
+
+  selectedCity: text("selected_city"),
+  selectedBranch: text("selected_branch"),
+  selectedDeliveryType: text("selected_delivery_type"),
+  selectedArea: text("selected_area"),
+
   permissions: text("permissions").array(),
   banned: boolean("banned").default(false),
   password: varchar("password"),

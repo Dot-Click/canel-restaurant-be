@@ -24,6 +24,9 @@ export const fetchUserController = async (req: Request, res: Response) => {
         fullName: true,
         email: true,
         role: true,
+        selectedCity: true,
+        selectedBranch: true,
+        selectedArea: true,
       },
     });
 
@@ -215,5 +218,60 @@ export const getRolePermissions = async (_req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: "An error occurred while fetching role permissions." });
+  }
+};
+
+export const updateUserLocation = async (req: Request, res: Response) => {
+  try {
+    const userId = req?.user?.id;
+
+    if (!userId) {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: User ID not found in token" });
+    }
+
+    const { city, branch, deliveryType, area } = req.body;
+
+    if (!city || !branch || !deliveryType || !area) {
+      return res
+        .status(400)
+        .json({ message: "Bad Request: Missing required location fields." });
+    }
+
+    const updatedResult = await database
+      .update(users)
+      .set({
+        // Assumes your schema has these column names
+        selectedCity: city,
+        selectedBranch: branch,
+        selectedDeliveryType: deliveryType,
+        selectedArea: area,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning({
+        updatedId: users.id,
+        city: users.selectedCity,
+        branch: users.selectedBranch,
+        deliveryType: users.selectedDeliveryType,
+        area: users.selectedArea,
+      });
+
+    console.log("this is the updated result", updatedResult);
+
+    if (updatedResult.length === 0) {
+      return res.status(status.NOT_FOUND).json({
+        message: "User not found.",
+      });
+    }
+
+    return res.status(status.OK).json({
+      message: "User location updated successfully.",
+      data: updatedResult[0],
+    });
+  } catch (error) {
+    console.error("Error updating user location:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };

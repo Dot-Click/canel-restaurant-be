@@ -67,12 +67,12 @@ prepareMigration(isProduction);
 app.use(helmet());
 io.on("connection", registerEvents);
 app.use(express.static("public"));
-// io.engine.use(sessionMiddleware);
 app.use(assignSocketToReqIO(io));
 app.use(express.static("dist"));
-// app.use(sessionMiddleware);
 app.use(cookieParser());
 io.use(authorizeUser);
+// io.engine.use(sessionMiddleware);
+// app.use(sessionMiddleware);
 
 app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
