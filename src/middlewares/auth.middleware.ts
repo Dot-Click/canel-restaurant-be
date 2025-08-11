@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { auth } from "@/lib/auth";
 import { users } from "@/schema/schema";
+// import { Headers } from "node-fetch";
+
 type User = typeof users.$inferSelect;
 
 declare global {
@@ -17,9 +19,19 @@ export const protectRoute = async (
   next: NextFunction
 ) => {
   try {
-    const headers = new Headers(req.headers as HeadersInit);
+    // const headers = new Headers(req.headers as HeadersInit);
+    const headers = new Headers();
+
+    if (req.headers.cookie) {
+      headers.set("cookie", req.headers.cookie);
+    }
+    if (req.headers["user-agent"]) {
+      headers.set("user-agent", req.headers["user-agent"]);
+    }
 
     const session = await auth.api.getSession({ headers });
+    console.log("This is session", session);
+    console.log("This is request headers", headers);
 
     if (!session || !session.user) {
       return res.status(401).json({
