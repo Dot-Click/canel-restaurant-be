@@ -26,6 +26,12 @@ const schemaObject = z.object({
   COOKIE_SECRET: z.string(),
   JWT_SECRET: z.string(),
   database: z.string(),
+  MERCANTILE_SECRET_KEY: z.string(),
+  MERCANTILE_API_KEY: z.string(),
+  MERCANTILE_INTEGRATOR_ID: z.string(),
+  MERCANTILE_MERCHANT_ID: z.string(),
+  MERCANTILE_TERMINAL_ID: z.string(),
+  MERCANTILE_CLIENT_ID: z.string(),
 });
 
 const envSchema = schemaObject.safeParse(process.env);

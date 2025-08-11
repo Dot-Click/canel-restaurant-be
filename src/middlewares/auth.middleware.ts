@@ -30,8 +30,6 @@ export const protectRoute = async (
     }
 
     const session = await auth.api.getSession({ headers });
-    console.log("This is session", session);
-    console.log("This is request headers", headers);
 
     if (!session || !session.user) {
       return res.status(401).json({
