@@ -123,7 +123,7 @@ export const auth = betterAuth({
       },
     }),
     phoneNumber({
-      async sendOTP({ phoneNumber, code }) {
+      sendOTP: async ({ phoneNumber, code }) => {
         try {
           const sanitizedPhoneNumber = phoneNumber.replace(/\D/g, "");
 
@@ -133,7 +133,7 @@ export const auth = betterAuth({
 
           await sendWatiTemplateMessage({
             recipientPhoneNumber: sanitizedPhoneNumber,
-            templateName: "testforwati",
+            templateName: "canel_phone_verification",
             parameters: [
               {
                 name: "1",
@@ -147,6 +147,10 @@ export const auth = betterAuth({
           console.error("Failed to send phone number OTP via WATI:", error);
           throw new Error("Failed to send phone number OTP.");
         }
+      },
+      signUpOnVerification: {
+        getTempEmail: (phoneNumber) => `${phoneNumber}@delivercanel.com`,
+        getTempName: (phoneNumber) => phoneNumber,
       },
     }),
   ],

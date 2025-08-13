@@ -28,10 +28,10 @@ const schemaObject = z.object({
   database: z.string(),
   MERCANTILE_SECRET_KEY: z.string(),
   MERCANTILE_API_KEY: z.string(),
-  MERCANTILE_INTEGRATOR_ID: z.string(),
-  MERCANTILE_MERCHANT_ID: z.string(),
-  MERCANTILE_TERMINAL_ID: z.string(),
-  MERCANTILE_CLIENT_ID: z.string(),
+  // MERCANTILE_INTEGRATOR_ID: z.string(),
+  // MERCANTILE_MERCHANT_ID: z.string(),
+  // MERCANTILE_TERMINAL_ID: z.string(),
+  // MERCANTILE_CLIENT_ID: z.string(),
 });
 
 const envSchema = schemaObject.safeParse(process.env);

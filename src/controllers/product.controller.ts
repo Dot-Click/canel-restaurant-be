@@ -11,7 +11,7 @@ import {
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
-import { eq, or, isNull } from "drizzle-orm";
+import { eq, or, isNull, ilike } from "drizzle-orm";
 
 interface FormData {
   name: string;
@@ -164,25 +164,27 @@ export const deleteController = async (req: Request, res: Response) => {
 export const fetchController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { search } = req.query;
 
     let productData;
 
+    console.log("This is the search", search);
+
     if (id) {
-      // Fetch a single product
       productData = await database.query.products.findFirst({
-        // Define the 'with' clause inline here
-        with: {
-          category: true, // TypeScript now correctly infers this as the literal 'true'
-        },
+        with: { category: true },
         where: eq(products.id, id),
       });
-    } else {
-      // Fetch all products
+    } else if (search && typeof search === "string") {
       productData = await database.query.products.findMany({
-        // Define the 'with' clause inline here as well
-        with: {
-          category: true,
-        },
+        with: { category: true },
+        where: ilike(products.name, `%${search.toLowerCase()}%`),
+        orderBy: (products, { desc }) => [desc(products.createdAt)],
+      });
+      console.log("This is the product data", productData);
+    } else {
+      productData = await database.query.products.findMany({
+        with: { category: true },
         orderBy: (products, { desc }) => [desc(products.createdAt)],
       });
     }
@@ -193,7 +195,7 @@ export const fetchController = async (req: Request, res: Response) => {
     ) {
       return res.status(status.OK).json({
         message: "No products found",
-        data: Array.isArray(productData) ? [] : null, // Ensure consistent response type
+        data: Array.isArray(productData) ? [] : null,
       });
     }
 

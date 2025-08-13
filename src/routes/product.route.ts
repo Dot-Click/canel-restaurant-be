@@ -39,6 +39,7 @@ productRoutes.patch(
 );
 
 productRoutes.get("/product-fetch", fetchController);
+productRoutes.get("/product-fetch/:id", fetchController);
 productRoutes.get("/product-branch/:branchId", getProductsForBranch);
 productRoutes.get("/categories-with-products", getCategoriesWithProducts);
 // router.get("/products/global", getGlobalProducts);

@@ -22,11 +22,13 @@ export const sendWatiTemplateMessage = async ({
   templateName,
   parameters,
 }: SendTemplateMessageParams): Promise<void> => {
-  const url = `${WATI_API_ENDPOINT}/v1/sendTemplateMessage`;
+  const url = `${WATI_API_ENDPOINT}/api/v2/sendTemplateMessage`;
 
   console.log("--- WATI Request Details ---");
   console.log("Endpoint:", url);
-  console.log("Access Token Loaded:", !!WATI_ACCESS_TOKEN); // This will be true or false
+  console.log("Template Name:", templateName);
+  console.log("Parameters:", parameters);
+  console.log("Access Token Loaded:", !!WATI_ACCESS_TOKEN);
   console.log("--------------------------");
 
   try {
@@ -34,7 +36,7 @@ export const sendWatiTemplateMessage = async ({
       url,
       {
         template_name: templateName,
-        broadcast_name: `auth_${templateName}`,
+        broadcast_name: `new_chat_v1_130820251910`,
         parameters: parameters,
       },
       {
