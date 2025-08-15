@@ -34,30 +34,24 @@ export const getBranchesForWati = async (_req: Request, res: Response) => {
 
 export const getMenuForWati = async (req: Request, res: Response) => {
   try {
-    // 1. Get the number the user replied with from the request body
     const { branchNumber } = req.body;
 
-    // 2. Validate the input
     if (!branchNumber) {
       return res.status(400).json({ message: "Branch number is required." });
     }
 
-    // 3. Fetch branches again using the IDENTICAL sorting order
     const allBranches = await database.query.branch.findMany({
       orderBy: (branches, { asc }) => [asc(branches.name)],
     });
 
-    // 4. Find the selected branch using the number as an index
     const selectedBranch = allBranches[Number(branchNumber) - 1];
 
-    // 5. Validate that the number was valid
     if (!selectedBranch) {
       return res
         .status(404)
         .json({ message: "Invalid branch number provided." });
     }
 
-    // 6. Fetch all products associated with the selected branch ID
     const branchProducts = await database.query.products.findMany({
       where: eq(products.branchId, selectedBranch.id),
       with: {
@@ -65,18 +59,14 @@ export const getMenuForWati = async (req: Request, res: Response) => {
       },
     });
 
-    // 7. Group products by category to create sections for the Wati list
     const groupedProducts: { [key: string]: any[] } = {};
     branchProducts.forEach((product) => {
       const categoryName = product.category?.name || "Miscellaneous";
 
-      // If we haven't seen this category yet, initialize its array
       if (!groupedProducts[categoryName]) {
         groupedProducts[categoryName] = [];
       }
 
-      // Create the row object Wati expects
-      // The 'id' here MUST be the unique product ID for ordering later
       groupedProducts[categoryName].push({
         id: product.id,
         title: product.name,
@@ -84,7 +74,6 @@ export const getMenuForWati = async (req: Request, res: Response) => {
       });
     });
 
-    // 8. Transform the grouped products into Wati's "sections" format
     const sections = Object.keys(groupedProducts).map((categoryName) => {
       return {
         title: categoryName,
@@ -106,6 +95,9 @@ export const getMenuForWati = async (req: Request, res: Response) => {
         sections: sections,
       },
     };
+
+    console.log(sections);
+    console.log(interactiveMenu);
 
     // 10. Send the complete JSON object back to Wati
     return res.status(200).json(interactiveMenu);

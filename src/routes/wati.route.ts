@@ -7,6 +7,6 @@ import {
 const watiRoute = Router();
 
 watiRoute.get("/fetch-branches/wati", getBranchesForWati);
-watiRoute.get("/fetch-menu/wati", getMenuForWati);
+watiRoute.post("/fetch-menu/wati", getMenuForWati);
 
 export { watiRoute };
