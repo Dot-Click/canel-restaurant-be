@@ -63,7 +63,9 @@ export const getMenuForWati = async (req: Request, res: Response) => {
       .map((p, i) => `${i + 1}. ${p.name} - $${p.price}`)
       .join("\n");
 
-    return res.status(200).json({message: "Menu is presented", data: finalBranchNameAndPrice});
+    return res
+      .status(200)
+      .json({ message: "Menu is presented", data: finalBranchNameAndPrice });
   } catch (error) {
     logger.error(`Error in getMenuForWati: ${error}`);
     return res.status(500).json({
@@ -74,25 +76,17 @@ export const getMenuForWati = async (req: Request, res: Response) => {
 
 export const placeOrderForWati = async (req: Request, res: Response) => {
   try {
-    const {
-      branchNumber,
-      itemNumber,
-      name,
-      location,
-      phone,
-      email,
-      type,
-      quantity,
-    } = req.body;
+    const { branchNumber, itemCart, name, location, phone, email, type } =
+      req.body;
 
     if (
       !branchNumber ||
-      !itemNumber ||
+      !itemCart ||
       !name ||
       !phone ||
       !email ||
       !type ||
-      !quantity
+      !location
     ) {
       return res.status(400).json({
         message: "Missing required information. Please provide all details.",
@@ -103,9 +97,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       const allBranches = await tx.query.branch.findMany({
         orderBy: (branches, { asc }) => [asc(branches.name)],
       });
-
       const selectedBranch = allBranches[Number(branchNumber) - 1];
-
       if (!selectedBranch) throw new Error("Invalid branch data.");
 
       const branchProducts = await tx.query.products.findMany({
@@ -115,30 +107,41 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         ),
       });
 
-      const selectedProduct = branchProducts[Number(itemNumber) - 1];
-
-      if (!selectedProduct) throw new Error("Invalid item number selected.");
-
       const [order] = await tx
         .insert(orders)
         .values({
           branchId: selectedBranch.id,
           status: "pending",
-          //   source: "Wati Chatbot",
+          source: "Wati Chatbot",
           name: name,
           type: type,
           phoneNumber: phone,
+          email: email,
           location: location,
         })
         .returning();
 
-      await tx.insert(orderItems).values({
-        orderId: order.id,
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        quantity: Number(quantity),
-        price: selectedProduct.price,
-      });
+      const itemPairs = itemCart.split(",");
+
+      for (const pair of itemPairs) {
+        if (!pair) continue;
+
+        const [itemNum, quantity] = pair.split(":");
+        if (!itemNum || !quantity)
+          throw new Error(`Invalid item format in cart: ${pair}`);
+
+        const selectedProduct = branchProducts[Number(itemNum) - 1];
+        if (!selectedProduct)
+          throw new Error(`Invalid item number in cart: ${itemNum}`);
+
+        await tx.insert(orderItems).values({
+          orderId: order.id,
+          productId: selectedProduct.id,
+          productName: selectedProduct.name,
+          quantity: Number(quantity),
+          price: selectedProduct.price,
+        });
+      }
 
       return order;
     });
