@@ -164,7 +164,7 @@ export const deleteController = async (req: Request, res: Response) => {
 export const fetchController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { search } = req.query;
+    const { search, wati } = req.query;
 
     let productData;
 
@@ -197,6 +197,17 @@ export const fetchController = async (req: Request, res: Response) => {
         message: "No products found",
         data: Array.isArray(productData) ? [] : null,
       });
+    }
+
+    if (wati && wati.toString().toLowerCase() === "true") {
+      if (Array.isArray(productData)) {
+        const menuList = productData
+          .map((p, i) => `${i + 1}. ${p.name}`)
+          .join("\n");
+        return res.status(status.OK).json({ menu: menuList });
+      } else {
+        return res.status(status.OK).json({ menu: `1. ${productData.name}` });
+      }
     }
 
     res.status(status.OK).json({
