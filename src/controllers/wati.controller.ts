@@ -63,7 +63,7 @@ export const getMenuForWati = async (req: Request, res: Response) => {
       .map((p, i) => `${i + 1}. ${p.name} - $${p.price}`)
       .join("\n");
 
-    return res.status(200).json(finalBranchNameAndPrice);
+    return res.status(200).json({message: "Menu is presented", data: finalBranchNameAndPrice});
   } catch (error) {
     logger.error(`Error in getMenuForWati: ${error}`);
     return res.status(500).json({
