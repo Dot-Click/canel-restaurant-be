@@ -10,7 +10,6 @@ import {
   // products,
   users,
   cart,
-  products,
 } from "@/schema/schema";
 import { logger } from "@/utils/logger.util";
 import status from "http-status";
@@ -386,89 +385,89 @@ export const createPosOrderController = async (req: Request, res: Response) => {
 };
 
 // For Wati
-export const createWatiOrderController = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const { productId, quantity, name, phone, email, location } = req.body;
+// export const createWatiOrderController = async (
+//   req: Request,
+//   res: Response
+// ) => {
+//   try {
+//     const { productId, quantity, name, phone, email, location } = req.body;
 
-    if (!productId || !quantity) {
-      return res
-        .status(400)
-        .json({ message: "Product ID and quantity are required." });
-    }
+//     if (!productId || !quantity) {
+//       return res
+//         .status(400)
+//         .json({ message: "Product ID and quantity are required." });
+//     }
 
-    // 1. Fetch product details from DB
-    const product = await database.query.products.findFirst({
-      where: eq(products.id, productId),
-    });
+//     // 1. Fetch product details from DB
+//     const product = await database.query.products.findFirst({
+//       where: eq(products.id, productId),
+//     });
 
-    if (!product) {
-      return res.status(404).json({ message: "Product not found." });
-    }
+//     if (!product) {
+//       return res.status(404).json({ message: "Product not found." });
+//     }
 
-    // 2. Find or create customer
-    let customerUserId: string | null = null;
-    if (email) {
-      const customer = await database.query.users.findFirst({
-        where: eq(users.email, email),
-      });
+//     // 2. Find or create customer
+//     let customerUserId: string | null = null;
+//     if (email) {
+//       const customer = await database.query.users.findFirst({
+//         where: eq(users.email, email),
+//       });
 
-      if (customer) {
-        customerUserId = customer.id;
-      } else {
-        const newUserId = crypto.randomUUID();
-        const [newCustomer] = await database
-          .insert(users)
-          .values({
-            id: newUserId,
-            email,
-            fullName: name || "WhatsApp Customer",
-            phone,
-          })
-          .returning({ id: users.id });
+//       if (customer) {
+//         customerUserId = customer.id;
+//       } else {
+//         const newUserId = crypto.randomUUID();
+//         const [newCustomer] = await database
+//           .insert(users)
+//           .values({
+//             id: newUserId,
+//             email,
+//             fullName: name || "WhatsApp Customer",
+//             phone,
+//           })
+//           .returning({ id: users.id });
 
-        customerUserId = newCustomer.id;
-      }
-    }
+//         customerUserId = newCustomer.id;
+//       }
+//     }
 
-    // 3. Create the order
-    const [order] = await database
-      .insert(orders)
-      .values({
-        name,
-        phoneNumber: phone,
-        location,
-        userId: customerUserId,
-        status: "pending",
-        createdAt: new Date(),
-      })
-      .returning();
+//     // 3. Create the order
+//     const [order] = await database
+//       .insert(orders)
+//       .values({
+//         name,
+//         phoneNumber: phone,
+//         location,
+//         userId: customerUserId,
+//         status: "pending",
+//         createdAt: new Date(),
+//       })
+//       .returning();
 
-    // 4. Create order item
-    await database.insert(orderItems).values({
-      orderId: order.id,
-      productId: product.id,
-      productName: product.name,
-      quantity,
-      price: product.price,
-    });
+//     // 4. Create order item
+//     await database.insert(orderItems).values({
+//       orderId: order.id,
+//       productId: product.id,
+//       productName: product.name,
+//       quantity,
+//       price: product.price,
+//     });
 
-    // 5. Respond with Wati-friendly message
-    return res.status(201).json({
-      message: `Order placed successfully!\n\n🛍 Item: ${
-        product.name
-      }\n📦 Qty: ${quantity}\n💰 Total: $${(
-        Number(product.price) * quantity
-      ).toFixed(2)}\n\nWe will contact you soon for confirmation.`,
-      orderId: order.id,
-    });
-  } catch (error) {
-    console.error("Failed to create Wati order:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-};
+//     // 5. Respond with Wati-friendly message
+//     return res.status(201).json({
+//       message: `Order placed successfully!\n\n🛍 Item: ${
+//         product.name
+//       }\n📦 Qty: ${quantity}\n💰 Total: $${(
+//         Number(product.price) * quantity
+//       ).toFixed(2)}\n\nWe will contact you soon for confirmation.`,
+//       orderId: order.id,
+//     });
+//   } catch (error) {
+//     console.error("Failed to create Wati order:", error);
+//     return res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
 
 // Riders related orders.....
 export const assignRiderController = async (req: Request, res: Response) => {
