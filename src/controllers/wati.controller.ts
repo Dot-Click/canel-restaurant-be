@@ -82,25 +82,25 @@ export const getMenuForWati = async (req: Request, res: Response) => {
     });
 
     // 9. Assemble the final, complete Interactive List Message JSON
-    const interactiveMenu = {
-      header: {
-        type: "text",
-        text: `Menu for ${selectedBranch.name}`,
-      },
-      body: {
-        text: "Please select an item from the list below to proceed.",
-      },
-      action: {
-        button: "View Menu", // This is the button text the user first sees
-        sections: sections,
-      },
-    };
+    // const interactiveMenu = {
+    //   header: {
+    //     type: "text",
+    //     text: `Menu for ${selectedBranch.name}`,
+    //   },
+    //   body: {
+    //     text: "Please select an item from the list below to proceed.",
+    //   },
+    //   action: {
+    //     button: "View Menu", // This is the button text the user first sees
+    //     sections: sections,
+    //   },
+    // };
 
-    console.log(sections);
-    console.log(interactiveMenu);
+    // console.log();
+    // console.log(interactiveMenu);
 
     // 10. Send the complete JSON object back to Wati
-    return res.status(200).json(interactiveMenu);
+    return res.status(200).json(sections);
   } catch (error) {
     logger.error(`Error in getMenuForWati: ${error}`);
     return res.status(500).json({
