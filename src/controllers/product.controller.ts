@@ -347,16 +347,13 @@ export const updateController = async (req: Request, res: Response) => {
 
 export const getProductsForBranch = async (req: Request, res: Response) => {
   try {
-    // 1. Get the target branch ID from the request parameters.
     const { branchId } = req.params;
+    const { wati } = req.query;
 
     if (!branchId) {
       return res.status(400).json({ error: "Branch ID is required." });
     }
 
-    // 2. Define the Common Table Expression (CTE) using db.$with()
-    // This CTE, named 'available_products', will act as a temporary, filtered table
-    // containing all products that are either specific to the branch or global.
     const availableProductsCTE = database.$with("available_products").as(
       database
         .select({
@@ -370,15 +367,9 @@ export const getProductsForBranch = async (req: Request, res: Response) => {
           categoryId: products.categoryId,
         })
         .from(products)
-        .where(
-          // The core logic: product.branchId equals target OR product.branchId is NULL
-          or(eq(products.branchId, branchId), isNull(products.branchId))
-        )
+        .where(or(eq(products.branchId, branchId), isNull(products.branchId)))
     );
 
-    // 3. Execute the main query using the CTE.
-    // We select from our pre-filtered 'available_products' CTE and join
-    // related data like the category.
     const result = await database
       .with(availableProductsCTE)
       .select({
@@ -393,14 +384,36 @@ export const getProductsForBranch = async (req: Request, res: Response) => {
         },
         category: {
           id: category.id,
-          name: category.name, // Assuming your category table has a 'name' field
+          name: category.name,
         },
       })
       .from(availableProductsCTE)
       .leftJoin(category, eq(availableProductsCTE.categoryId, category.id))
-      .where(eq(availableProductsCTE.status, "publish")); // Optional: Only get published products
+      .where(eq(availableProductsCTE.status, "publish"));
 
-    return res.status(200).json(result);
+    if (!result || result.length === 0) {
+      return res.status(200).json({ message: "No products found", data: [] });
+    }
+
+    // WATI MODE RESPONSE
+    if (wati === "true") {
+      const productList = result
+        .map((p, i) => `${i + 1}. ${p.product.name} - $${p.product.price}`)
+        .join("\n");
+
+      const productIds = result.map((p) => p.product.id);
+
+      return res.status(200).json({
+        menu: `📋 Available Products:\n${productList}\n\nReply with the product number to order.`,
+        productIds,
+      });
+    }
+
+    // Default (web) mode
+    return res.status(200).json({
+      message: "Products fetched successfully",
+      data: result,
+    });
   } catch (error) {
     console.error("Failed to fetch products for branch:", error);
     return res.status(500).json({ error: "Internal Server Error" });
@@ -415,9 +428,6 @@ export const assignProductToBranch = async (req: Request, res: Response) => {
     // 1. Get the Product ID from the URL parameters
     const { productId } = req.params;
 
-    // 2. Get the new Branch ID from the request body.
-    // The body could look like: { "branchId": "uuid-of-the-branch" }
-    // or to make it global: { "branchId": null }
     const { branchId } = req.body;
 
     if (!productId) {

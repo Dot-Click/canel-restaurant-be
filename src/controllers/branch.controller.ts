@@ -94,24 +94,46 @@ export const addBranchController = async (req: Request, res: Response) => {
 };
 
 export const fetchAllBranchesController = async (
-  _req: Request,
+  req: Request,
   res: Response
 ) => {
   try {
+    const { wati } = req.query;
+
     const branches = await database.query.branch.findMany({
       with: {
-        city: true,
+        city: { columns: { name: true } },
         manager: { columns: { id: true, fullName: true, email: true } },
       },
       orderBy: (branch, { asc }) => [asc(branch.name)],
     });
 
+    if (!branches || branches.length === 0) {
+      return res
+        .status(status.OK)
+        .json({ message: "No branches found", data: [] });
+    }
+
+    // If Wati mode → send WhatsApp-friendly list + branch IDs
+    if (wati === "true") {
+      const branchList = branches
+        .map((b, i) => `${i + 1}. ${b.name} - ${b.city?.name || "Unknown"}`)
+        .join("\n");
+
+      const branchIds = branches.map((b) => b.id);
+
+      return res.status(status.OK).json({
+        menu: `🏢 Available Branches:\n${branchList}\n\nReply with the branch number to continue.`,
+        branchIds, // So Wati can map number → ID
+      });
+    }
+
+    // Default (web) mode
     return res
       .status(status.OK)
       .json({ message: "Branches fetched successfully", data: branches });
   } catch (error) {
     logger.error("Error fetching branches:", error);
-    console.log(error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "Could not fetch branches." });
