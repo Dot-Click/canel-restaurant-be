@@ -94,11 +94,11 @@ export const addBranchController = async (req: Request, res: Response) => {
 };
 
 export const fetchAllBranchesController = async (
-  req: Request,
+  _req: Request,
   res: Response
 ) => {
   try {
-    const { wati } = req.query;
+    // const { wati } = req.query;
 
     const branches = await database.query.branch.findMany({
       with: {
@@ -112,20 +112,6 @@ export const fetchAllBranchesController = async (
       return res
         .status(status.OK)
         .json({ message: "No branches found", data: [] });
-    }
-
-    // If Wati mode → send WhatsApp-friendly list + branch IDs
-    if (wati === "true") {
-      const branchList = branches
-        .map((b, i) => `${i + 1}. ${b.name} - ${b.city?.name || "Unknown"}`)
-        .join("\n");
-
-      const branchIds = branches.map((b) => b.id);
-
-      return res.status(status.OK).json({
-        menu: `🏢 Available Branches:\n${branchList}\n\nReply with the branch number to continue.`,
-        branchIds, // So Wati can map number → ID
-      });
     }
 
     // Default (web) mode
