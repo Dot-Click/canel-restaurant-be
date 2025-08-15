@@ -52,9 +52,6 @@ orderRoutes.patch("/pause/branch/:id", setBranchPauseStatus);
 
 orderRoutes.patch("/:orderId/accept", protectRoute, acceptOrderController);
 
-orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
-
-orderRoutes.get("/me/orders", protectRoute, getRiderOrdersController);
 orderRoutes.get("/fetch-order", protectRoute, fetchController);
 orderRoutes.get("/user-orders/:id", protectRoute, getOrderByIdController);
 
@@ -65,5 +62,9 @@ orderRoutes.patch(
   protectRoute,
   setBranchPauseStatus
 );
+
+
+orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
+orderRoutes.get("/me/orders", protectRoute, getRiderOrdersController);
 
 export { orderRoutes };

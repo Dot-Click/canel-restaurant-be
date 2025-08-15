@@ -194,20 +194,27 @@ export const fetchController = async (req: Request, res: Response) => {
       (Array.isArray(productData) && productData.length === 0)
     ) {
       return res.status(status.OK).json({
-        message: "No products found",
-        data: Array.isArray(productData) ? [] : null,
+        menu: "No products found",
       });
     }
 
+    // Extract names
+    let menuNames = "";
+    if (Array.isArray(productData)) {
+      menuNames = productData.map((p) => p.name).join(", ");
+    } else {
+      menuNames = productData.name;
+    }
+
+    // Send flat JSON for Wati
     res.status(status.OK).json({
-      message: "Product(s) fetched successfully",
-      data: productData,
+      menu: menuNames,
     });
   } catch (error) {
     logger.error(error);
     res
       .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
+      .json({ menu: (error as Error).message });
   }
 };
 
