@@ -202,11 +202,29 @@ export const fetchController = async (req: Request, res: Response) => {
     if (wati && wati.toString().toLowerCase() === "true") {
       if (Array.isArray(productData)) {
         const menuList = productData
-          .map((p, i) => `${i + 1}. ${p.name}`)
+          .map((p, i) => `${i + 1}. ${p.name} -- ${p.price}`)
           .join("\n");
-        return res.status(status.OK).json({ menu: menuList });
+        return res.status(status.OK).json({
+          menu: menuList,
+          items: productData.map((p, i) => ({
+            number: i + 1,
+            id: p.id,
+            name: p.name,
+            price: p.price,
+          })),
+        });
       } else {
-        return res.status(status.OK).json({ menu: `1. ${productData.name}` });
+        return res.status(status.OK).json({
+          menu: `1. ${productData.name} -- ${productData.price}`,
+          items: [
+            {
+              number: 1,
+              id: productData.id,
+              name: productData.name,
+              price: productData.price,
+            },
+          ],
+        });
       }
     }
 
