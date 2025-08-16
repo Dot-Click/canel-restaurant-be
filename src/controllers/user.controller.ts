@@ -56,6 +56,7 @@ export const fetchAllUsersController = async (_req: Request, res: Response) => {
         fullName: true,
         email: true,
         role: true,
+        phoneNumber: true,
       },
     });
 

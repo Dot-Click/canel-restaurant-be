@@ -1,10 +1,11 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import { env } from "./env.utils";
 
 dotenv.config();
 
-const WATI_API_ENDPOINT = process.env.WATI_WHATSAPP_ENDPOINT;
-const WATI_ACCESS_TOKEN = process.env.WATI_WHATSAPP_ACCESS_TOKEN;
+const WATI_API_ENDPOINT = env.WATI_WHATSAPP_ENDPOINT;
+const WATI_ACCESS_TOKEN = env.WATI_WHATSAPP_ACCESS_TOKEN;
 
 interface TemplateParameter {
   name: string;

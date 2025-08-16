@@ -32,6 +32,8 @@ const schemaObject = z.object({
   // MERCANTILE_MERCHANT_ID: z.string(),
   // MERCANTILE_TERMINAL_ID: z.string(),
   // MERCANTILE_CLIENT_ID: z.string(),
+  WATI_WHATSAPP_ENDPOINT: z.string(),
+  WATI_WHATSAPP_ACCESS_TOKEN: z.string(),
 });
 
 const envSchema = schemaObject.safeParse(process.env);
