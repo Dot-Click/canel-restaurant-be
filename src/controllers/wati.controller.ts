@@ -99,7 +99,9 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       const allBranches = await tx.query.branch.findMany({
         orderBy: (branches, { asc }) => [asc(branches.name)],
       });
+
       const selectedBranch = allBranches[Number(branchNumber) - 1];
+
       if (!selectedBranch) throw new Error("Invalid branch data.");
 
       const branchProducts = await tx.query.products.findMany({
@@ -123,7 +125,10 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         })
         .returning();
 
-      const itemPairs = itemCart.split(",");
+      const itemPairs = itemCart
+        .split(",")
+        .map((pair: string) => pair.trim())
+        .filter((pair: string) => pair && !pair.includes("@cart_items"));
 
       for (const pair of itemPairs) {
         if (!pair) continue;
