@@ -158,7 +158,9 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         totalPrice += productPrice * Number(quantity);
       }
 
-      return { ...order, totalPrice };
+      const roundedTotalPrice = Number(totalPrice.toFixed(2));
+
+      return { ...order, totalPrice: roundedTotalPrice };
     });
 
     return res
