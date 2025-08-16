@@ -79,6 +79,8 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
     const { branchNumber, itemCart, name, location, phone, email, type } =
       req.body;
 
+    console.log("This is req.body", req.body);
+
     if (
       !branchNumber ||
       !itemCart ||
