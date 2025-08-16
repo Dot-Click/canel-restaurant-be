@@ -99,9 +99,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       const allBranches = await tx.query.branch.findMany({
         orderBy: (branches, { asc }) => [asc(branches.name)],
       });
-
       const selectedBranch = allBranches[Number(branchNumber) - 1];
-
       if (!selectedBranch) throw new Error("Invalid branch data.");
 
       const branchProducts = await tx.query.products.findMany({
@@ -125,6 +123,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         })
         .returning();
 
+      let totalPrice = 0;
       const itemPairs = itemCart
         .split(",")
         .map((pair: string) => pair.trim())
@@ -141,16 +140,25 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         if (!selectedProduct)
           throw new Error(`Invalid item number in cart: ${itemNum}`);
 
+        // Ensure price is a number and handle potential null/undefined
+        const productPrice = Number(selectedProduct.price) || 0;
+        if (isNaN(productPrice)) {
+          throw new Error(`Invalid price for item number: ${itemNum}`);
+        }
+
         await tx.insert(orderItems).values({
           orderId: order.id,
+
           productId: selectedProduct.id,
           productName: selectedProduct.name,
           quantity: Number(quantity),
-          price: selectedProduct.price,
+          price: productPrice.toString(),
         });
+
+        totalPrice += productPrice * Number(quantity);
       }
 
-      return order;
+      return { ...order, totalPrice };
     });
 
     return res
