@@ -172,7 +172,14 @@ export const categoryrelation = relations(category, ({ many }) => ({
 export const orders = pgTable("orders", {
   id: uuid().primaryKey(),
   status: varchar("status", {
-    enum: ["pending", "accepted", "on_the_way", "delivered", "cancelled"],
+    enum: [
+      "pending",
+      "confirmed",
+      "accepted_by_rider",
+      "on_the_way",
+      "delivered",
+      "cancelled"
+    ],
   }).default("pending"),
   location: varchar("location").notNull(),
   name: varchar("name").notNull(),
@@ -182,6 +189,8 @@ export const orders = pgTable("orders", {
   email: varchar("email"),
   changeRequest: varchar("change_request"),
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
+  deliveryImage: varchar("delivery_image"),
+  tip: numeric("tip", { precision: 10, scale: 2 }).default("0.00"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "set null",
@@ -462,6 +471,11 @@ export const categoryInsertSchema = createInsertSchema(category);
 export const cartInsertSchema = createInsertSchema(cart);
 export const branchInsertSchema = createInsertSchema(branch);
 export const orderInsertSchema = createInsertSchema(orders);
+
+export const riderAuthInsertSchema = z.object({
+  email: z.string().min(1, "Email is required"),
+  password: z.string().min(1, "Password is required"),
+})
 
 // For updates
 export const categoryUpdateSchema = categoryInsertSchema.partial();

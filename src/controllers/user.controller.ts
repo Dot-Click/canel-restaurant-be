@@ -2,7 +2,9 @@ import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { status } from "http-status";
 import { database } from "@/configs/connection.config";
-import { users } from "@/schema/schema";
+import { 
+  // riderAuthInsertSchema,
+ users } from "@/schema/schema";
 import { eq, not, like, inArray } from "drizzle-orm";
 import { assignPermissionsSchema, staffIdParamSchema } from "@/schema/schema";
 import { z } from "zod";
@@ -273,6 +275,35 @@ export const updateUserLocation = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error updating user location:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(status.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
   }
 };
+
+
+// LOGIN FOR RIDER APP
+// export const riderLogin = async (req: Request, res: Response) => {
+//   try {
+
+//     const {email, password} = req.body
+
+//     const { data } = riderAuthInsertSchema.safeParse(email, password)
+
+//     if(!data){
+//       return res.status(status.UNPROCESSABLE_ENTITY).json({message: "Validation Error"})
+//     }
+
+//     const user = await database.query.users.findFirst({
+//       where: eq(email, users.email)
+//     })
+
+//     if(!user || user.role !== "rider"){
+//       return res.status(status.BAD_REQUEST).json({message: "Not a rider"})
+//     }
+
+//     const isPasswordCorrect = 
+
+//   } catch (error) {
+//     console.error("Error updating user location:", error);
+//     res.status(status.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+//   }
+// }
