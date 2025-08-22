@@ -39,7 +39,7 @@ export const insertController = async (req: Request, res: Response) => {
       if (globalSetting?.isPaused) {
         throw new Error(
           globalSetting.reason ||
-          "Ordering is temporarily paused. Please try again later."
+            "Ordering is temporarily paused. Please try again later."
         );
       }
 
@@ -67,7 +67,7 @@ export const insertController = async (req: Request, res: Response) => {
       if (selectedBranch.isPaused) {
         throw new Error(
           selectedBranch.pauseReason ||
-          "This branch is not accepting orders right now."
+            "This branch is not accepting orders right now."
         );
       }
       console.log("hello bruhhh");
@@ -387,7 +387,6 @@ export const createPosOrderController = async (req: Request, res: Response) => {
   }
 };
 
-
 export const assignRiderController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // The Order ID
@@ -439,18 +438,19 @@ export const assignRiderController = async (req: Request, res: Response) => {
   }
 };
 
-
-// Riders related orders..... 
-
+// Riders related orders.....
 
 /**
- * 
- * It will be used to update the status 
+ *
+ * It will be used to update the status
  */
-export const updateStatusOrderController = async (req: Request, res: Response) => {
+export const updateStatusOrderController = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { orderId } = req.params;
-    const { accept, deliver } = req.query
+    const { accept, deliver } = req.query;
     const currentUser = req.user;
 
     if (!currentUser?.role || currentUser.role !== "rider") {
@@ -459,9 +459,7 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
         .json({ message: "Access denied. You are not rider." });
     }
 
-
     let riderToAssignId = currentUser.id;
-
 
     const [orderToUpdate] = await database
       .select()
@@ -476,7 +474,6 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
 
     switch (true) {
       case !!accept:
-
         if (orderToUpdate.status === "accepted_by_rider") {
           return res.status(status.CONFLICT).json({
             message: `This order cannot be accepted. Its current status is "${orderToUpdate.status}".`,
@@ -497,7 +494,7 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
         return res.status(status.OK).json({
           message: "Order accepted and assigned successfully!",
           data: updatedOrder,
-        })
+        });
 
       case !!deliver:
         if (orderToUpdate.status !== "accepted_by_rider") {
@@ -506,11 +503,15 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
           });
         }
 
-        const [deliveredOrder] = await database.update(orders).set({
-          status: "delivered",
-          deliveredAt: new Date(),
-          updatedAt: new Date()
-        }).where(eq(orders.id, orderId)).returning()
+        const [deliveredOrder] = await database
+          .update(orders)
+          .set({
+            status: "delivered",
+            deliveredAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, orderId))
+          .returning();
 
         return res.status(status.OK).json({
           message: "Order marked as delivered successfully!",
@@ -519,11 +520,10 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
 
       default:
         return res.status(status.BAD_REQUEST).json({
-          message: "No valid action specified. Use '?accept=true' or '?deliver=true'.",
+          message:
+            "No valid action specified. Use '?accept=true' or '?deliver=true'.",
         });
     }
-
-
   } catch (error) {
     console.error("Error in acceptOrderController:", error);
     return res
@@ -533,27 +533,31 @@ export const updateStatusOrderController = async (req: Request, res: Response) =
 };
 
 /**
- * 
+ *
  * This for rider to upload image of delivery as prove apperently
  */
 export const deliveryRiderImageUpload = async (req: Request, res: Response) => {
   try {
+    const form = formidable();
 
-    const form = formidable()
+    const { orderId } = req.params;
 
-    const { orderId } = req.params
+    const [_formData, files] = await form.parse<any, "deliveryImage">(req);
 
-    const [_formData, files] = await form.parse<any, "deliveryImage">(req)
+    console.log(files);
 
-    console.log(files)
-
-    const image = files.deliveryImage?.[0]
+    const image = files.deliveryImage?.[0];
 
     if (!image) {
-      return res.status(status.BAD_REQUEST).json({ message: "Please provide the image." })
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Please provide the image." });
     }
 
-    const cloudinaryResponse = await cloudinary.uploader.upload(image.filepath, { folder: "products" })
+    const cloudinaryResponse = await cloudinary.uploader.upload(
+      image.filepath,
+      { folder: "products" }
+    );
 
     if (!cloudinaryResponse) {
       return res
@@ -561,63 +565,65 @@ export const deliveryRiderImageUpload = async (req: Request, res: Response) => {
         .json({ message: "Problem with image" });
     }
 
-    const insertdeliveryImage = await database.update(orders)
-      .set({ deliveryImage: cloudinaryResponse.secure_url }).where(eq(orders.id, orderId)).returning()
+    const insertdeliveryImage = await database
+      .update(orders)
+      .set({ deliveryImage: cloudinaryResponse.secure_url })
+      .where(eq(orders.id, orderId))
+      .returning();
 
-    return res.status(status.OK).json({ data: insertdeliveryImage, message: "Image added successfully." })
-
+    return res.status(status.OK).json({
+      data: insertdeliveryImage,
+      message: "Image added successfully.",
+    });
   } catch (error) {
     console.error("Error in acceptOrderController:", error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "An internal server error occurred." });
   }
-}
+};
 
 /**
- * 
- * this is to fetch weekly earning and hours driven of the rider 
+ *
+ * this is to fetch weekly earning and hours driven of the rider
  */
 export const riderWeeklyMoneyAndHour = async (req: Request, res: Response) => {
   try {
-
-    const riderId = req?.user?.id
-
+    const riderId = req?.user?.id;
 
     if (!riderId) {
-      return res.status(status.UNAUTHORIZED).json({ message: "You are not authorized. Kindly Login" })
+      return res
+        .status(status.UNAUTHORIZED)
+        .json({ message: "You are not authorized. Kindly Login" });
     }
 
-    const today = new Date()
-
+    const today = new Date();
 
     const startOfWeekDate = startOfWeek(today, { weekStartsOn: 1 });
     const endOfWeekDate = endOfWeek(today, { weekStartsOn: 1 });
-
-
 
     const weeklyOrders = await database.query.orders.findMany({
       where: and(
         eq(orders.riderId, riderId),
         eq(orders.status, "delivered"),
         gte(orders.deliveredAt, startOfWeekDate),
-        lte(orders.deliveredAt, endOfWeekDate),
+        lte(orders.deliveredAt, endOfWeekDate)
       ),
       columns: {
         acceptedAt: true,
         deliveredAt: true,
-        tip: true
+        tip: true,
       },
       with: {
         orderItems: {
           columns: {
             price: true,
-            quantity: true
-          }
-        }
-      }
-    })
-    console.log("This is weekly order", weeklyOrders)
+            quantity: true,
+          },
+        },
+      },
+    });
+    console.log("This is weekly order", weeklyOrders);
 
     if (!weeklyOrders || weeklyOrders.length === 0) {
       return res.status(status.OK).json({
@@ -631,19 +637,17 @@ export const riderWeeklyMoneyAndHour = async (req: Request, res: Response) => {
 
     const totals = weeklyOrders.reduce(
       (acc, order) => {
-
         const orderTotal = order.orderItems.reduce((itemSum, item) => {
-
           const itemTotal = parseFloat(item.price) * item.quantity;
           return itemSum + (itemTotal || 0);
         }, 0);
-        const orderTip = parseFloat(order.tip || '0.00'); // Safely parse the tip
+        const orderTip = parseFloat(order.tip || "0.00"); // Safely parse the tip
         acc.earnings += orderTotal + orderTip;
-        
 
         // Calculate time duration (remains the same)
         if (order.acceptedAt && order.deliveredAt) {
-          const durationMs = order.deliveredAt.getTime() - order.acceptedAt.getTime();
+          const durationMs =
+            order.deliveredAt.getTime() - order.acceptedAt.getTime();
           acc.milliseconds += durationMs;
         }
 
@@ -661,18 +665,16 @@ export const riderWeeklyMoneyAndHour = async (req: Request, res: Response) => {
         hoursDriven: parseFloat(hoursDriven),
       },
     });
-
-
   } catch (error) {
     console.error("Error in acceptOrderController:", error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "An internal server error occurred." });
   }
-}
+};
 
 /**
- * 
+ *
  * this is to add tip
  */
 
@@ -682,32 +684,39 @@ export const addTipToOrderController = async (req: Request, res: Response) => {
     const { tipAmount } = req.body;
     const currentUser = req.user;
 
-
     if (tipAmount === undefined || tipAmount === null) {
-      return res.status(status.BAD_REQUEST).json({ message: "tipAmount is required in the body." });
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "tipAmount is required in the body." });
     }
 
     const tipValue = parseFloat(tipAmount);
 
     if (isNaN(tipValue) || tipValue < 0) {
-      return res.status(status.BAD_REQUEST).json({ message: "tipAmount must be a valid, non-negative number." });
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "tipAmount must be a valid, non-negative number." });
     }
 
-
-    const [order] = await database.select().from(orders).where(eq(orders.id, orderId as string));
+    const [order] = await database
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId as string));
 
     if (!order) {
       return res.status(status.NOT_FOUND).json({ message: "Order not found." });
     }
 
-
     if (order.riderId !== currentUser?.id) {
-      return res.status(status.FORBIDDEN).json({ message: "Forbidden. You are not the rider for this order." });
+      return res
+        .status(status.FORBIDDEN)
+        .json({ message: "Forbidden. You are not the rider for this order." });
     }
 
-
     if (order.status !== "delivered") {
-      return res.status(status.CONFLICT).json({ message: `Cannot add tip. Order status is '${order.status}', not 'delivered'.` });
+      return res.status(status.CONFLICT).json({
+        message: `Cannot add tip. Order status is '${order.status}', not 'delivered'.`,
+      });
     }
 
     // 3. Perform the update
@@ -715,7 +724,7 @@ export const addTipToOrderController = async (req: Request, res: Response) => {
       .update(orders)
       .set({
         tip: tipValue.toFixed(2), // Store as a formatted string
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(orders.id, orderId as string))
       .returning();
@@ -724,10 +733,11 @@ export const addTipToOrderController = async (req: Request, res: Response) => {
       message: "Tip added successfully!",
       data: updatedOrder,
     });
-
   } catch (error) {
     console.error("Error in addTipToOrderController:", error);
-    return res.status(status.INTERNAL_SERVER_ERROR).json({ message: "An internal server error occurred." });
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "An internal server error occurred." });
   }
 };
 
@@ -756,7 +766,7 @@ export const getOrdersByRiderIdController = async (
       where: and(
         eq(orders.riderId, riderId),
 
-        inArray(orders.status, ["accepted_by_rider", "on_the_way"])
+        inArray(orders.status, ["confirmed", "accepted_by_rider", "on_the_way"])
       ),
       with: {
         branch: true,
@@ -787,7 +797,7 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
   try {
     const rider = req.user;
 
-    console.log("This is ridder:", rider)
+    console.log("This is ridder:", rider);
 
     if (!rider) {
       return res
@@ -805,13 +815,19 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
       where: and(
         eq(orders.riderId, rider.id),
 
-        inArray(orders.status, ["accepted_by_rider", "on_the_way"])
+        inArray(orders.status, ["confirmed", "accepted_by_rider", "on_the_way"])
       ),
 
       with: {
         branch: true,
-        user: true,
+        // user: true,
         orderItems: {
+          columns: {
+            productName: true,
+            quantity: true,
+            price: true,
+            instructions: true,
+          },
           with: {
             product: true,
           },
@@ -821,7 +837,7 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
       orderBy: [desc(orders.createdAt)],
     });
 
-    console.log("This is the rider orders:", riderOrders)
+    console.log("This is the rider orders:", riderOrders);
 
     return res.status(status.OK).json({
       message: "Rider's active orders fetched successfully.",
@@ -834,5 +850,3 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
     });
   }
 };
-
-
