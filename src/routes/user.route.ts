@@ -2,6 +2,8 @@ import {
   assignPermissionsController,
   fetchAllRidersController,
   fetchAllUsersController,
+  fetchRidersController,
+  fetchRiderTipsController,
   fetchStaffController,
   fetchUserController,
   getRolePermissions,
@@ -20,7 +22,8 @@ userRoute.put("/staff/:userId/permissions", assignPermissionsController);
 userRoute.get("/all-users", fetchAllUsersController);
 userRoute.get("/roles-permissions", getRolePermissions);
 userRoute.put("/update-location", protectRoute, updateUserLocation);
-
+userRoute.get("/rider-tips", fetchRiderTipsController);
+userRoute.get("/fetch-riders", fetchRidersController);
 
 // Rider routes
 // userRoute.post("/rider-login", riderLogin)

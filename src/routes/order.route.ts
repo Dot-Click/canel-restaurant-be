@@ -12,6 +12,7 @@ import {
   deliveryRiderImageUpload,
   riderWeeklyMoneyAndHour,
   addTipToOrderController,
+  fetchNewVsRecurringOrdersController,
   // updateRiderOrderDelivery,
 } from "@/controllers/order.controller";
 import {
@@ -54,7 +55,6 @@ orderRoutes.patch(
 
 orderRoutes.patch("/pause/branch/:id", setBranchPauseStatus);
 
-
 orderRoutes.get("/fetch-order", protectRoute, fetchController);
 orderRoutes.get("/user-orders/:id", protectRoute, getOrderByIdController);
 
@@ -66,21 +66,34 @@ orderRoutes.patch(
   setBranchPauseStatus
 );
 
-
 orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
 
 // For RIDERS:-
 // This is to get orders for rider.
 orderRoutes.get("/orders", protectRoute, getRiderOrdersController);
 // This is for accepting the order.
-orderRoutes.patch("/:orderId/update-order-status", protectRoute, updateStatusOrderController);
+orderRoutes.patch(
+  "/:orderId/update-order-status",
+  protectRoute,
+  updateStatusOrderController
+);
 // This is for marking order as delivered.
 // orderRoutes.patch("/update-delivery-status", protectRoute, updateRiderOrderDelivery)
-orderRoutes.patch("/:orderId/upload-delivery-image", protectRoute, deliveryRiderImageUpload)
+orderRoutes.patch(
+  "/:orderId/upload-delivery-image",
+  protectRoute,
+  deliveryRiderImageUpload
+);
 
-orderRoutes.get("/fetch-hours-earning", protectRoute, riderWeeklyMoneyAndHour)
+orderRoutes.get("/fetch-hours-earning", protectRoute, riderWeeklyMoneyAndHour);
 
 // This route should be protected, only accessible by a logged-in rider.
 orderRoutes.patch("/:orderId/add-tip", protectRoute, addTipToOrderController);
+
+orderRoutes.get(
+  "/new-vs-recurring",
+  protectRoute,
+  fetchNewVsRecurringOrdersController
+);
 
 export { orderRoutes };

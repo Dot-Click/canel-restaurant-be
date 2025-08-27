@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { database } from "@/configs/connection.config";
 import {
   cartItems,
@@ -847,6 +847,51 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
     console.error("Error fetching rider's orders:", error);
     return res.status(status.INTERNAL_SERVER_ERROR).json({
       message: "An internal server error occurred while fetching orders.",
+    });
+  }
+};
+
+/**
+ * This to fetch new customers vs old customers
+ */
+export const fetchNewVsRecurringOrdersController = async (
+  _req: Request,
+  res: Response
+) => {
+  try {
+    // Step 1: Get all users with their order count
+    const userOrderCounts = await database
+      .select({
+        userId: orders.userId,
+        orderCount: sql<number>`COUNT(${orders.id})`,
+      })
+      .from(orders)
+      .groupBy(orders.userId);
+
+    // Step 2: Split into new vs recurring
+    let newUsers = 0;
+    let recurringUsers = 0;
+
+    userOrderCounts.forEach((record) => {
+      if (record.orderCount === 1) {
+        newUsers++;
+      } else if (record.orderCount > 1) {
+        recurringUsers++;
+      }
+    });
+
+    return res.status(status.OK).json({
+      message: "New vs Recurring users fetched successfully",
+      data: {
+        total: newUsers + recurringUsers,
+        newUsers,
+        recurringUsers,
+      },
+    });
+  } catch (error) {
+    logger.error("Error fetching new vs recurring orders:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An error occurred while fetching new vs recurring orders.",
     });
   }
 };

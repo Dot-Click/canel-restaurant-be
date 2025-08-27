@@ -2,10 +2,12 @@ import { Request, Response } from "express";
 import { logger } from "@/utils/logger.util";
 import { status } from "http-status";
 import { database } from "@/configs/connection.config";
-import { 
+import {
+  orders,
   // riderAuthInsertSchema,
- users } from "@/schema/schema";
-import { eq, not, like, inArray } from "drizzle-orm";
+  users,
+} from "@/schema/schema";
+import { eq, not, like, inArray, and, sql, desc, sum } from "drizzle-orm";
 import { assignPermissionsSchema, staffIdParamSchema } from "@/schema/schema";
 import { z } from "zod";
 
@@ -275,35 +277,121 @@ export const updateUserLocation = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error updating user location:", error);
-    res.status(status.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "Internal Server Error" });
   }
 };
 
+// FETCH TIPS
+export const fetchRiderTipsController = async (req: Request, res: Response) => {
+  try {
+    const { riderId, allriders } = req.query;
 
-// LOGIN FOR RIDER APP
-// export const riderLogin = async (req: Request, res: Response) => {
-//   try {
+    if (!riderId && allriders) {
+      const totalTipsResult = await database
+        .select({
+          totalAmount: sum(orders.tip).as("totalAmount"),
+        })
+        .from(orders)
+        .where(
+          and(
+            sql`${orders.tip} > 0`, // Only count positive tips
+            sql`${orders.riderId} IS NOT NULL` // Ensure a rider was assigned
+          )
+        );
 
-//     const {email, password} = req.body
+      const totalAmount = totalTipsResult[0]?.totalAmount
+        ? parseFloat(totalTipsResult[0].totalAmount as string)
+        : 0;
 
-//     const { data } = riderAuthInsertSchema.safeParse(email, password)
+      return res.status(status.OK).json({
+        message: "Total tips from all riders fetched successfully",
+        data: {
+          totalTips: totalAmount.toFixed(2),
+        },
+      });
+    }
 
-//     if(!data){
-//       return res.status(status.UNPROCESSABLE_ENTITY).json({message: "Validation Error"})
-//     }
+    // Fetch rider's details
+    const rider = await database.query.users.findFirst({
+      where: and(eq(users.id, riderId as string), eq(users.role, "rider")),
+      columns: {
+        id: true,
+        fullName: true,
+        email: true,
+      },
+    });
 
-//     const user = await database.query.users.findFirst({
-//       where: eq(email, users.email)
-//     })
+    if (!rider) {
+      return res.status(status.NOT_FOUND).json({
+        message: "Rider not found or user is not a rider.",
+      });
+    }
 
-//     if(!user || user.role !== "rider"){
-//       return res.status(status.BAD_REQUEST).json({message: "Not a rider"})
-//     }
+    const riderOrdersWithTips = await database
+      .select({
+        orderId: orders.id,
+        tipAmount: orders.tip,
+        orderDate: orders.createdAt,
+      })
+      .from(orders)
+      .where(and(eq(orders.riderId, riderId as string), sql`${orders.tip} > 0`))
+      .orderBy(desc(orders.createdAt));
 
-//     const isPasswordCorrect = 
+    const totalTipForRider = riderOrdersWithTips.reduce(
+      (acc, order) => acc + parseFloat(order.tipAmount as string),
+      0
+    );
 
-//   } catch (error) {
-//     console.error("Error updating user location:", error);
-//     res.status(status.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
-//   }
-// }
+    console.log("This is the rider orders with tips", riderOrdersWithTips);
+    console.log("This is the total tip for the rider", totalTipForRider);
+
+    return res.status(status.OK).json({
+      message: `Tips fetched for rider ${rider.fullName} successfully`,
+      data: {
+        rider: {
+          id: rider.id,
+          fullName: rider.fullName,
+          email: rider.email,
+        },
+        tippedOrders: riderOrdersWithTips,
+        totalTipAmount: totalTipForRider.toFixed(2),
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(status.BAD_REQUEST).json({
+        message: "Invalid rider ID format.",
+        errors: error.errors,
+      });
+    }
+    logger.error("Error fetching rider tips:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An error occurred while fetching rider tips.",
+    });
+  }
+};
+
+export const fetchRidersController = async (_req: Request, res: Response) => {
+  try {
+    const riders = await database.query.users.findMany({
+      where: (user) => eq(user.role, "rider"),
+      columns: {
+        id: true,
+        fullName: true,
+        email: true,
+      },
+    });
+
+    return res.status(status.OK).json({
+      message: "All riders fetched successfully",
+      data: riders,
+    });
+  } catch (error) {
+    logger.error("Error fetching riders:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An error occurred while fetching riders.",
+    });
+  }
+};
