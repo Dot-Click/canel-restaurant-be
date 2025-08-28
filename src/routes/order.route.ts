@@ -13,6 +13,7 @@ import {
   riderWeeklyMoneyAndHour,
   addTipToOrderController,
   fetchNewVsRecurringOrdersController,
+  getRiderDeliveredOrdersController,
   // updateRiderOrderDelivery,
 } from "@/controllers/order.controller";
 import {
@@ -86,6 +87,12 @@ orderRoutes.patch(
 );
 
 orderRoutes.get("/fetch-hours-earning", protectRoute, riderWeeklyMoneyAndHour);
+
+orderRoutes.get(
+  "/fetch-delivered-orders",
+  protectRoute,
+  getRiderDeliveredOrdersController
+);
 
 // This route should be protected, only accessible by a logged-in rider.
 orderRoutes.patch("/:orderId/add-tip", protectRoute, addTipToOrderController);

@@ -852,6 +852,61 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
 };
 
 /**
+ * This is to fetch orders with the delivered status for rider
+ */
+export const getRiderDeliveredOrdersController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const rider = req.user;
+
+    if (!rider) {
+      return res
+        .status(status.UNAUTHORIZED)
+        .json({ message: "Unauthorized. Please log in." });
+    }
+
+    if (rider?.role?.toLowerCase() !== "rider") {
+      return res
+        .status(status.FORBIDDEN)
+        .json({ message: "Forbidden. This action is for riders only." });
+    }
+
+    const deliveredOrders = await database.query.orders.findMany({
+      where: and(eq(orders.riderId, rider.id), eq(orders.status, "delivered")),
+      with: {
+        branch: true,
+        user: true,
+        orderItems: {
+          columns: {
+            productName: true,
+            quantity: true,
+            price: true,
+            instructions: true,
+          },
+          with: {
+            product: true,
+          },
+        },
+      },
+      orderBy: [desc(orders.deliveredAt)],
+    });
+
+    return res.status(status.OK).json({
+      message: "Delivered orders fetched successfully.",
+      data: deliveredOrders,
+    });
+  } catch (error) {
+    console.error("Error fetching delivered orders for rider:", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An internal server error occurred while fetching delivered orders.",
+    });
+  }
+};
+
+
+/**
  * This to fetch new customers vs old customers
  */
 export const fetchNewVsRecurringOrdersController = async (
