@@ -9,91 +9,132 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import cloudinary from "@/configs/cloudinary.config";
 
-export const fetchLogoController = async (_req: Request, res: Response) => {
+// export const fetchLogoController = async (_req: Request, res: Response) => {
+//   try {
+//     // Query the database, but only select the 'logo' column for efficiency.
+//     const brandingData = await database.query.branding.findFirst({
+//       columns: {
+//         logo: true,
+//       },
+//     });
+
+//     // If no record exists or the logo field is null, return a clear response.
+//     if (!brandingData || !brandingData.logo) {
+//       return res.status(status.OK).json({
+//         message: "Logo has not been configured.",
+//         data: null,
+//       });
+//     }
+
+//     // Return the logo data.
+//     return res.status(status.OK).json({
+//       message: "Logo fetched successfully.",
+//       data: { logo: brandingData.logo },
+//     });
+//   } catch (error) {
+//     logger.error("Failed to fetch logo:", error);
+//     return res
+//       .status(status.INTERNAL_SERVER_ERROR)
+//       .json({ message: (error as Error).message });
+//   }
+// };
+
+// export const fetchBannerController = async (_req: Request, res: Response) => {
+//   try {
+//     // Query the database, only selecting the 'banner' column.
+//     const brandingData = await database.query.branding.findFirst({
+//       columns: {
+//         banner: true,
+//       },
+//     });
+
+//     if (!brandingData || !brandingData.banner) {
+//       return res.status(status.OK).json({
+//         message: "Banner has not been configured.",
+//         data: null,
+//       });
+//     }
+
+//     return res.status(status.OK).json({
+//       message: "Banner fetched successfully.",
+//       data: { banner: brandingData.banner },
+//     });
+//   } catch (error) {
+//     logger.error("Failed to fetch banner:", error);
+//     return res
+//       .status(status.INTERNAL_SERVER_ERROR)
+//       .json({ message: (error as Error).message });
+//   }
+// };
+
+// export const fetchMainSectionController = async (
+//   _req: Request,
+//   res: Response
+// ) => {
+//   try {
+//     // Query the database, only selecting the 'mainSection' column.
+//     const brandingData = await database.query.branding.findFirst({
+//       columns: {
+//         mainSection: true,
+//       },
+//     });
+
+//     // Your database schema uses main_section, so ensure your ORM maps it correctly
+//     // or use the exact column name if needed. Assuming 'mainSection' is the mapped name.
+//     if (!brandingData || !brandingData.mainSection) {
+//       return res.status(status.OK).json({
+//         message: "Main section has not been configured.",
+//         data: null,
+//       });
+//     }
+
+//     return res.status(status.OK).json({
+//       message: "Main section fetched successfully.",
+//       data: { mainSection: brandingData.mainSection },
+//     });
+//   } catch (error) {
+//     logger.error("Failed to fetch main section:", error);
+//     return res
+//       .status(status.INTERNAL_SERVER_ERROR)
+//       .json({ message: (error as Error).message });
+//   }
+// };
+
+export const fetchBrandingController = async (req: Request, res: Response) => {
   try {
-    // Query the database, but only select the 'logo' column for efficiency.
+    // ?field=logo or ?field=banner or ?field=phoneNumber, etc.
+    const { field } = req.query;
+
+    if (!field || typeof field !== "string") {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Query parameter 'field' is required." });
+    }
+
+    // Build dynamic columns object for Drizzle
+    const columns: Record<string, boolean> = {};
+    columns[field] = true;
+
     const brandingData = await database.query.branding.findFirst({
-      columns: {
-        logo: true,
-      },
+      columns,
     });
 
-    // If no record exists or the logo field is null, return a clear response.
-    if (!brandingData || !brandingData.logo) {
+    if (
+      !brandingData ||
+      brandingData[field as keyof typeof brandingData] === undefined
+    ) {
       return res.status(status.OK).json({
-        message: "Logo has not been configured.",
+        message: `${field} has not been configured.`,
         data: null,
       });
     }
 
-    // Return the logo data.
     return res.status(status.OK).json({
-      message: "Logo fetched successfully.",
-      data: { logo: brandingData.logo },
+      message: `${field} fetched successfully.`,
+      data: { [field]: brandingData[field as keyof typeof brandingData] },
     });
   } catch (error) {
-    logger.error("Failed to fetch logo:", error);
-    return res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
-  }
-};
-
-export const fetchBannerController = async (_req: Request, res: Response) => {
-  try {
-    // Query the database, only selecting the 'banner' column.
-    const brandingData = await database.query.branding.findFirst({
-      columns: {
-        banner: true,
-      },
-    });
-
-    if (!brandingData || !brandingData.banner) {
-      return res.status(status.OK).json({
-        message: "Banner has not been configured.",
-        data: null,
-      });
-    }
-
-    return res.status(status.OK).json({
-      message: "Banner fetched successfully.",
-      data: { banner: brandingData.banner },
-    });
-  } catch (error) {
-    logger.error("Failed to fetch banner:", error);
-    return res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
-  }
-};
-
-export const fetchMainSectionController = async (
-  _req: Request,
-  res: Response
-) => {
-  try {
-    // Query the database, only selecting the 'mainSection' column.
-    const brandingData = await database.query.branding.findFirst({
-      columns: {
-        mainSection: true,
-      },
-    });
-
-    // Your database schema uses main_section, so ensure your ORM maps it correctly
-    // or use the exact column name if needed. Assuming 'mainSection' is the mapped name.
-    if (!brandingData || !brandingData.mainSection) {
-      return res.status(status.OK).json({
-        message: "Main section has not been configured.",
-        data: null,
-      });
-    }
-
-    return res.status(status.OK).json({
-      message: "Main section fetched successfully.",
-      data: { mainSection: brandingData.mainSection },
-    });
-  } catch (error) {
-    logger.error("Failed to fetch main section:", error);
+    logger.error("Failed to fetch branding:", error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
@@ -107,70 +148,69 @@ export const updateBrandingController = async (req: Request, res: Response) => {
 
     const logoFile = files.logo?.[0];
     const bannerFile = files.banner?.[0];
-    const mainSection = formData.mainSection?.[0];
 
-    // This object will hold only the data we are actually updating.
-    const dataToUpdate: {
-      logo?: string;
-      banner?: string;
-      mainSection?: string;
-      updatedAt?: Date;
-    } = {};
+    // Build update object dynamically
+    const dataToUpdate: Partial<{
+      logo: string;
+      banner: string;
+      name: string;
+      email: string;
+      phoneNumber: string;
+      instagram: string;
+      facebook: string;
+      mainSection: string;
+      updatedAt: Date;
+    }> = {};
 
-    // Build the update object dynamically based on what was provided.
     if (logoFile) {
       const response = await cloudinary.uploader.upload(logoFile.filepath, {
         folder: "branding",
       });
       dataToUpdate.logo = response.secure_url;
     }
+
     if (bannerFile) {
       const response = await cloudinary.uploader.upload(bannerFile.filepath, {
         folder: "branding",
       });
       dataToUpdate.banner = response.secure_url;
     }
-    if (mainSection) {
-      dataToUpdate.mainSection = mainSection;
-    }
 
-    // If the request was empty (no files, no text), there's nothing to do.
+    // Text fields
+    if (formData.name) dataToUpdate.name = formData.name[0];
+    if (formData.email) dataToUpdate.email = formData.email[0];
+    if (formData.phoneNumber)
+      dataToUpdate.phoneNumber = formData.phoneNumber[0];
+    if (formData.instagram) dataToUpdate.instagram = formData.instagram[0];
+    if (formData.facebook) dataToUpdate.facebook = formData.facebook[0];
+    if (formData.mainSection)
+      dataToUpdate.mainSection = formData.mainSection[0];
+
     if (Object.keys(dataToUpdate).length === 0) {
       return res
         .status(status.BAD_REQUEST)
         .json({ message: "No data provided for update." });
     }
 
-    // Always update the timestamp when a change is made.
     dataToUpdate.updatedAt = new Date();
 
-    // --- LOGIC STARTS HERE ---
-
-    // 1. Try to find the single, global branding record.
+    // Check if global branding record exists
     const globalBranding = await database.query.branding.findFirst();
-
-    // We declare this variable here so it can be used by both the if and else blocks.
     let updatedRecord;
 
-    // 2. Decide whether to UPDATE or INSERT.
     if (globalBranding) {
-      // --- PATH A: THE RECORD EXISTS (This will be the normal case) ---
-      // We found the record, so we UPDATE it using its ID.
       [updatedRecord] = await database
         .update(branding)
         .set(dataToUpdate)
-        .where(eq(branding.id, globalBranding.id)) // Use the ID we just found
+        .where(eq(branding.id, globalBranding.id))
         .returning();
     } else {
-      // --- PATH B: THE RECORD DOES NOT EXIST (This happens only once) ---
-      // The table is empty, so we INSERT the very first record.
       [updatedRecord] = await database
         .insert(branding)
-        .values(dataToUpdate) // Drizzle will use all fields in the object
+        .values(dataToUpdate)
         .returning();
     }
 
-    // 3. Return the final result.
     return res.status(status.OK).json({
       message: "Global branding updated successfully",
       data: updatedRecord,

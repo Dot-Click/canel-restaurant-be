@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { database } from "../configs/connection.config";
-import { branch, city, branchInsertSchema } from "../schema/schema";
+import {
+  branch,
+  city,
+  branchInsertSchema,
+  branchSchedule,
+} from "../schema/schema";
 import { eq, ilike } from "drizzle-orm";
 import { status } from "http-status";
 import { logger } from "@/utils/logger.util";
@@ -20,7 +25,8 @@ const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
   name: z.string().optional(),
   address: z.string().optional(),
   phoneNumber: z.string().optional(),
-  operatingHours: z.string().optional(),
+  openingTime: z.string().optional(),
+  closingTime: z.string().optional(),
   status: z.enum(["open", "closed"]).optional(),
   cityId: z.string().optional(),
   manager: z.string().optional(),
@@ -30,25 +36,33 @@ export const addBranchController = async (req: Request, res: Response) => {
   try {
     const validation = apiBranchAddPayloadSchema.safeParse(req.body);
 
-    // console.log("This is request body:", req.body);
-
-    // console.log("This is validation:", validation);
-
     if (!validation.success) {
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
         error: validation.error.format(),
       });
     }
-    console.log("Hello");
-    const { cityName, ...branchData } = validation.data;
+
+    const { cityName, openingTime, closingTime, ...branchData } =
+      validation.data as {
+        cityName: string;
+        openingTime?: string;
+        closingTime?: string;
+        name: string;
+        address: string;
+        manager?: string;
+        phoneNumber?: string;
+        areas?: string[];
+        email?: string;
+      };
 
     const newBranch = await database.transaction(async (tx) => {
+      // Check if city exists
       let existingCity = await tx.query.city.findFirst({
         where: eq(city.name, cityName),
       });
-      let cityId: string;
 
+      let cityId: string;
       if (existingCity) {
         cityId = existingCity.id;
       } else {
@@ -59,37 +73,37 @@ export const addBranchController = async (req: Request, res: Response) => {
         cityId = newCity.id;
       }
 
-      // `branchData` now has the correct type for `areas`, so this works perfectly.
-      const finalPayload = {
-        ...branchData,
-        cityId: cityId,
-      };
-
-      // The error is now gone because `finalPayload` has the correct type.
+      // Insert branch
       const [insertedBranch] = await tx
         .insert(branch)
-        .values(finalPayload)
+        .values({ ...branchData, cityId, manager: branchData.manager || "" })
         .returning({ id: branch.id });
+
+      // Insert schedule for 7 days if openingTime & closingTime exist
+      if (openingTime && closingTime) {
+        const scheduleData = Array.from({ length: 7 }, (_, i) => ({
+          branchId: insertedBranch.id,
+          dayOfWeek: i, // 0=Sunday, 6=Saturday
+          openTime: openingTime,
+          closeTime: closingTime,
+          isActive: true,
+        }));
+
+        await tx.insert(branchSchedule).values(scheduleData);
+      }
+
       return insertedBranch;
     });
 
     return res.status(status.CREATED).json({
-      message: "Branch added successfully",
+      message: "Branch + Schedule added successfully",
       data: newBranch,
     });
   } catch (error) {
     logger.error("Error adding branch:", error);
-    if (
-      error instanceof Error &&
-      error.message.includes("branch_manager_unique")
-    ) {
-      return res
-        .status(status.CONFLICT)
-        .json({ message: "This user is already managing another branch." });
-    }
-    return res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: "Could not add branch." });
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "Could not add branch.",
+    });
   }
 };
 

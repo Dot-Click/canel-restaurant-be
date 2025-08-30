@@ -178,7 +178,7 @@ export const orders = pgTable("orders", {
       "accepted_by_rider",
       "on_the_way",
       "delivered",
-      "cancelled"
+      "cancelled",
     ],
   }).default("pending"),
   location: varchar("location").notNull(),
@@ -391,6 +391,11 @@ export const branding = pgTable("branding", {
   id: uuid("id").primaryKey(),
   logo: varchar("logo"),
   banner: varchar("banner"),
+  name: varchar("name"),
+  email: varchar("email"),
+  phoneNumber: varchar("phone_number"),
+  instagram: varchar("instagram"),
+  facebook: varchar("facebook"),
   mainSection: varchar("main_section"),
 });
 
@@ -475,7 +480,7 @@ export const orderInsertSchema = createInsertSchema(orders);
 export const riderAuthInsertSchema = z.object({
   email: z.string().min(1, "Email is required"),
   password: z.string().min(1, "Password is required"),
-})
+});
 
 // For updates
 export const categoryUpdateSchema = categoryInsertSchema.partial();
