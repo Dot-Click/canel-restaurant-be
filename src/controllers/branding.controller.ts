@@ -1,5 +1,3 @@
-// in your controllers/brandingController.ts
-
 import { Request, Response } from "express";
 import formidable from "formidable";
 import status from "http-status";
@@ -9,129 +7,47 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import cloudinary from "@/configs/cloudinary.config";
 
-// export const fetchLogoController = async (_req: Request, res: Response) => {
-//   try {
-//     // Query the database, but only select the 'logo' column for efficiency.
-//     const brandingData = await database.query.branding.findFirst({
-//       columns: {
-//         logo: true,
-//       },
-//     });
-
-//     // If no record exists or the logo field is null, return a clear response.
-//     if (!brandingData || !brandingData.logo) {
-//       return res.status(status.OK).json({
-//         message: "Logo has not been configured.",
-//         data: null,
-//       });
-//     }
-
-//     // Return the logo data.
-//     return res.status(status.OK).json({
-//       message: "Logo fetched successfully.",
-//       data: { logo: brandingData.logo },
-//     });
-//   } catch (error) {
-//     logger.error("Failed to fetch logo:", error);
-//     return res
-//       .status(status.INTERNAL_SERVER_ERROR)
-//       .json({ message: (error as Error).message });
-//   }
-// };
-
-// export const fetchBannerController = async (_req: Request, res: Response) => {
-//   try {
-//     // Query the database, only selecting the 'banner' column.
-//     const brandingData = await database.query.branding.findFirst({
-//       columns: {
-//         banner: true,
-//       },
-//     });
-
-//     if (!brandingData || !brandingData.banner) {
-//       return res.status(status.OK).json({
-//         message: "Banner has not been configured.",
-//         data: null,
-//       });
-//     }
-
-//     return res.status(status.OK).json({
-//       message: "Banner fetched successfully.",
-//       data: { banner: brandingData.banner },
-//     });
-//   } catch (error) {
-//     logger.error("Failed to fetch banner:", error);
-//     return res
-//       .status(status.INTERNAL_SERVER_ERROR)
-//       .json({ message: (error as Error).message });
-//   }
-// };
-
-// export const fetchMainSectionController = async (
-//   _req: Request,
-//   res: Response
-// ) => {
-//   try {
-//     // Query the database, only selecting the 'mainSection' column.
-//     const brandingData = await database.query.branding.findFirst({
-//       columns: {
-//         mainSection: true,
-//       },
-//     });
-
-//     // Your database schema uses main_section, so ensure your ORM maps it correctly
-//     // or use the exact column name if needed. Assuming 'mainSection' is the mapped name.
-//     if (!brandingData || !brandingData.mainSection) {
-//       return res.status(status.OK).json({
-//         message: "Main section has not been configured.",
-//         data: null,
-//       });
-//     }
-
-//     return res.status(status.OK).json({
-//       message: "Main section fetched successfully.",
-//       data: { mainSection: brandingData.mainSection },
-//     });
-//   } catch (error) {
-//     logger.error("Failed to fetch main section:", error);
-//     return res
-//       .status(status.INTERNAL_SERVER_ERROR)
-//       .json({ message: (error as Error).message });
-//   }
-// };
-
 export const fetchBrandingController = async (req: Request, res: Response) => {
   try {
-    // ?field=logo or ?field=banner or ?field=phoneNumber, etc.
+    // ?field=logo (string) OR ?field=logo&field=banner (array)
     const { field } = req.query;
 
-    if (!field || typeof field !== "string") {
+    if (!field) {
       return res
         .status(status.BAD_REQUEST)
         .json({ message: "Query parameter 'field' is required." });
     }
 
-    // Build dynamic columns object for Drizzle
-    const columns: Record<string, boolean> = {};
-    columns[field] = true;
+    const fieldsToFetch = Array.isArray(field) ? field : [field as string];
+
+    const columns = fieldsToFetch.reduce((acc, currentField) => {
+      if (typeof currentField === "string" && currentField.length > 0) {
+        acc[currentField] = true;
+      }
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    // If after processing, no valid columns were created, it's a bad request.
+    if (Object.keys(columns).length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "A valid 'field' query parameter is required." });
+    }
 
     const brandingData = await database.query.branding.findFirst({
       columns,
     });
 
-    if (
-      !brandingData ||
-      brandingData[field as keyof typeof brandingData] === undefined
-    ) {
+    if (!brandingData) {
       return res.status(status.OK).json({
-        message: `${field} has not been configured.`,
+        message: `Branding has not been configured.`,
         data: null,
       });
     }
 
     return res.status(status.OK).json({
-      message: `${field} fetched successfully.`,
-      data: { [field]: brandingData[field as keyof typeof brandingData] },
+      message: `${fieldsToFetch.join(", ")} fetched successfully.`,
+      data: brandingData,
     });
   } catch (error) {
     logger.error("Failed to fetch branding:", error);

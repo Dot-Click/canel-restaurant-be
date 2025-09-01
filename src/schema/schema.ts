@@ -349,7 +349,7 @@ export const branch = pgTable("branch", {
   operatingHours: varchar("operating_hours"),
   manager: foreignkeyRef("manager_id", () => users.id, {
     onDelete: "set null",
-  }).notNull(), // foregn key reference
+  }),
   cityId: foreignkeyRef("city_id", () => city.id, {
     onDelete: "set null",
   }).notNull(), //separate city table

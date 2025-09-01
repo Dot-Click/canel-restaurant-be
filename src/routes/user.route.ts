@@ -1,5 +1,6 @@
 import {
   assignPermissionsController,
+  deleteStaffController,
   fetchAllRidersController,
   fetchAllUsersController,
   fetchRidersController,
@@ -12,6 +13,7 @@ import {
 } from "@/controllers/user.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
 import { Router } from "express";
+import { updateStaffController } from "../controllers/user.controller";
 
 const userRoute = Router();
 
@@ -25,6 +27,8 @@ userRoute.put("/update-location", protectRoute, updateUserLocation);
 userRoute.get("/rider-tips", fetchRiderTipsController);
 userRoute.get("/fetch-riders", fetchRidersController);
 
+userRoute.put("/staff/:id", updateStaffController);
+userRoute.delete("/staff/:id", deleteStaffController);
 // Rider routes
 // userRoute.post("/rider-login", riderLogin)
 

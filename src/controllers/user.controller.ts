@@ -114,8 +114,12 @@ export const fetchStaffController = async (req: Request, res: Response) => {
 
     const query = database
       .select({
-        label: users.fullName,
-        value: users.id,
+        name: users.fullName,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+        banned: users.banned,
+        id: users.id,
       })
       .from(users)
       .where(not(eq(users.role, "user")))
@@ -139,6 +143,97 @@ export const fetchStaffController = async (req: Request, res: Response) => {
     logger.error("Error fetching staff members", error);
     return res.status(status.INTERNAL_SERVER_ERROR).json({
       message: "Failed to fetch staff members.",
+    });
+  }
+};
+
+export const deleteStaffController = async (req: Request, res: Response) => {
+  try {
+    const staffId = req.params.id;
+
+    if (!staffId) {
+      return res.status(status.BAD_REQUEST).json({
+        message: "Staff ID is required.",
+      });
+    }
+    console.log(staffId);
+    const deletedStaff = await database
+      .delete(users)
+      .where(eq(users.id, staffId))
+      .returning({
+        id: users.id,
+        name: users.fullName,
+      });
+    console.log("This is the deleted staff", deletedStaff);
+    if (deletedStaff.length === 0) {
+      return res.status(status.NOT_FOUND).json({
+        message: "Staff member not found.",
+      });
+    }
+
+    return res.status(status.OK).json({
+      message: "Staff member deleted successfully",
+      data: deletedStaff[0],
+    });
+  } catch (error) {
+    logger.error("Error deleting staff member", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "Failed to delete staff member.",
+    });
+  }
+};
+
+export const updateStaffController = async (req: Request, res: Response) => {
+  try {
+    const staffId = req.params.id;
+    // Get the new data from the request body
+    const { fullName, role, banned } = req.body;
+
+    // --- Validation ---
+    if (!staffId) {
+      return res.status(status.BAD_REQUEST).json({
+        message: "Staff ID is required.",
+      });
+    }
+
+    if (!fullName || !role || typeof banned !== "boolean") {
+      return res.status(status.BAD_REQUEST).json({
+        message: "Full name, role, and status are required.",
+      });
+    }
+
+    // --- Database Operation ---
+    const updatedStaff = await database
+      .update(users)
+      .set({
+        fullName,
+        role,
+        banned,
+        // Drizzle automatically handles updatedAt if you used .$onUpdateFn() in the schema
+      })
+      .where(eq(users.id, staffId))
+      .returning({
+        // Return the updated data to the frontend
+        id: users.id,
+        fullName: users.fullName,
+        role: users.role,
+        banned: users.banned,
+      });
+
+    if (updatedStaff.length === 0) {
+      return res.status(status.NOT_FOUND).json({
+        message: "Staff member not found.",
+      });
+    }
+
+    return res.status(status.OK).json({
+      message: "Staff member updated successfully",
+      data: updatedStaff[0],
+    });
+  } catch (error) {
+    logger.error("Error updating staff member", error);
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "Failed to update staff member.",
     });
   }
 };
