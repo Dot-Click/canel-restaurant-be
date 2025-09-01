@@ -16,6 +16,7 @@ import status from "http-status";
 import formidable from "formidable";
 import cloudinary from "@/configs/cloudinary.config";
 import { endOfWeek, startOfWeek } from "date-fns";
+import crypto from "crypto";
 
 export const insertController = async (req: Request, res: Response) => {
   const { cartId, branchId, ...formData } = req.body;
@@ -900,11 +901,11 @@ export const getRiderDeliveredOrdersController = async (
   } catch (error) {
     console.error("Error fetching delivered orders for rider:", error);
     return res.status(status.INTERNAL_SERVER_ERROR).json({
-      message: "An internal server error occurred while fetching delivered orders.",
+      message:
+        "An internal server error occurred while fetching delivered orders.",
     });
   }
 };
-
 
 /**
  * This to fetch new customers vs old customers
