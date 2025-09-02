@@ -4,6 +4,7 @@ import { database } from "@/configs/connection.config";
 import { branch, branchSchedule, timeSlot } from "@/schema/schema";
 import { status } from "http-status";
 import { logger } from "@/utils/logger.util";
+import crypto from "crypto";
 
 export const createOrUpdateBranchScheduleController = async (
   req: Request,
