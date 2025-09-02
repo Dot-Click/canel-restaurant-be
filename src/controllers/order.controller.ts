@@ -107,6 +107,7 @@ export const insertController = async (req: Request, res: Response) => {
           quantity: item.quantity,
           price: item.product.price,
           instructions: item.instructions || "",
+          discount: item.product.discount || 0,
         };
       });
 
@@ -165,7 +166,7 @@ export const fetchController = async (req: Request, res: Response) => {
   try {
     const userId = req?.user?.id;
     const userRole = req.user?.role;
-    console.log("This is user Role", userRole);
+
     if (!userId) {
       return res.status(401).json({ message: "User ID missing in session" });
     }
@@ -219,8 +220,7 @@ export const updateController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    console.log("This is the updated data", updateData);
-    console.log("This is the ID:", id);
+
     if (!id) {
       return res
         .status(status.BAD_REQUEST)

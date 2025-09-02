@@ -39,7 +39,7 @@ branchRouter.delete(
 // Fetch all branches
 branchRouter.get("/fetch-all-branch", fetchAllBranchesController);
 
-branchRouter.get("/fetch-branch", fetchSingleBranchController);
+branchRouter.get("/fetch-branch/:id", fetchSingleBranchController);
 
 branchRouter.get("/cities", fetchCitiesController);
 branchRouter.get("/areas/:cityName", fetchAreasForCityController);

@@ -19,6 +19,7 @@ interface FormData {
   description: string;
   categoryId: string;
   addonItemIds: string[];
+  availability: string;
 }
 
 export const insertController = async (req: Request, res: Response) => {
@@ -44,6 +45,9 @@ export const insertController = async (req: Request, res: Response) => {
     const payloadToValidate = {
       ...otherFields,
       addonItemIds,
+      availability: Array.isArray(otherFields.availability)
+        ? otherFields.availability[0] === "true"
+        : otherFields.availability === "true",
     };
 
     const { data, error } = productInsertSchema.safeParse(payloadToValidate);
@@ -82,6 +86,7 @@ export const insertController = async (req: Request, res: Response) => {
         image: cloudinaryResponse.secure_url,
         categoryId: data.categoryId,
         discount: data.discount,
+        availability: data.availability,
         // This is the key addition:
         addonItemIds: data.addonItemIds || [], // Use validated data, default to empty array
       })

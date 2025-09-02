@@ -217,6 +217,7 @@ export const orderItems = pgTable("orderItems", {
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   productName: varchar("product_name").notNull(),
+  discount: integer("discount"),
   instructions: varchar("instructions"),
 });
 
