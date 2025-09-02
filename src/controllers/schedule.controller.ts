@@ -129,37 +129,44 @@ export const getSchedules = async (req: Request, res: Response) => {
 };
 
 export const toggleSchedule = async (req: Request, res: Response) => {
-  const { branchId, dayOfWeek, isActive } = req.body;
+  try {
+    const { id: branchId, dayOfWeek, isActive } = req.body;
+    console.log("Request body:", req.body);
+    const existing = await database.query.branchSchedule.findFirst({
+      where: and(
+        eq(branchSchedule.branchId, branchId),
+        eq(branchSchedule.dayOfWeek, dayOfWeek)
+      ),
+    });
 
-  const existing = await database.query.branchSchedule.findFirst({
-    where: and(
-      eq(branchSchedule.branchId, branchId),
-      eq(branchSchedule.dayOfWeek, dayOfWeek)
-    ),
-  });
+    if (existing) {
+      await database
+        .update(branchSchedule)
+        .set({ isActive })
+        .where(eq(branchSchedule.id, existing.id));
+    } else {
+      const newSchedule = await database
+        .insert(branchSchedule)
+        .values({
+          branchId,
+          dayOfWeek,
+          isActive: true,
+        })
+        .returning();
 
-  if (existing) {
-    await database
-      .update(branchSchedule)
-      .set({ isActive })
-      .where(eq(branchSchedule.id, existing.id));
-  } else {
-    const newSchedule = await database
-      .insert(branchSchedule)
-      .values({
-        branchId,
-        dayOfWeek,
-        isActive: true,
-      })
-      .returning();
+      // Optional: Add default time slot
+      await database.insert(timeSlot).values({
+        scheduleId: newSchedule[0].id,
+        openTime: "10:00",
+        closeTime: "14:00",
+      });
+    }
 
-    // Optional: Add default time slot
-    await database.insert(timeSlot).values({
-      scheduleId: newSchedule[0].id,
-      openTime: "10:00",
-      closeTime: "14:00",
+    res.json({ message: "Schedule toggled" });
+  } catch (error) {
+    logger.error("Error in toggleSchedule controller:", error);
+    res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: "An internal server error occurred while toggling schedule.",
     });
   }
-
-  res.json({ message: "Schedule toggled" });
 };
