@@ -10,6 +10,7 @@ import {
   // products,
   users,
   cart,
+  orderAddons,
 } from "@/schema/schema";
 import { logger } from "@/utils/logger.util";
 import status from "http-status";
@@ -22,8 +23,6 @@ export const insertController = async (req: Request, res: Response) => {
   const { cartId, branchId, ...formData } = req.body;
   const userId = req.user!.id;
 
-  console.log("THis is the request body:-", req.body);
-
   if (!cartId || !branchId) {
     return res
       .status(status.BAD_REQUEST)
@@ -31,97 +30,114 @@ export const insertController = async (req: Request, res: Response) => {
   }
 
   try {
-    const newOrder = await database.transaction(async (tx) => {
-      // 1. Check for global pause
-      const [globalSetting] = await tx
-        .select()
-        .from(globalOrderStatus)
-        .limit(1);
-      if (globalSetting?.isPaused) {
-        throw new Error(
+    // 1. Check for global pause
+    const [globalSetting] = await database
+      .select()
+      .from(globalOrderStatus)
+      .limit(1);
+
+    if (globalSetting?.isPaused) {
+      return res.status(status.FORBIDDEN).json({
+        message:
           globalSetting.reason ||
-            "Ordering is temporarily paused. Please try again later."
-        );
-      }
-
-      // 2. Check for branch-specific pause
-      const results = await tx
-        .select({
-          isPaused: branch.isPaused,
-          pauseReason: branch.pauseReason,
-        })
-        .from(branch)
-        .where(eq(branch.id, branchId))
-        .limit(1);
-
-      // Get the first element from the array
-      const selectedBranch = results[0];
-
-      if (!selectedBranch) {
-        throw new Error("Branch not found.");
-      }
-
-      if (!selectedBranch) {
-        throw new Error("Branch not found.");
-      }
-
-      if (selectedBranch.isPaused) {
-        throw new Error(
-          selectedBranch.pauseReason ||
-            "This branch is not accepting orders right now."
-        );
-      }
-      console.log("hello bruhhh");
-      // 3. Check for items in the cart
-      const itemsInCart = await tx.query.cartItems.findMany({
-        where: eq(cartItems.cartId, cartId),
-        with: {
-          product: true,
-        },
+          "Ordering is temporarily paused. Please try again later.",
       });
+    }
 
-      if (itemsInCart.length === 0) {
-        throw new Error("Cannot place an order with an empty cart.");
+    // 2. Check for branch pause
+    const results = await database
+      .select({
+        isPaused: branch.isPaused,
+        pauseReason: branch.pauseReason,
+      })
+      .from(branch)
+      .where(eq(branch.id, branchId))
+      .limit(1);
+
+    const selectedBranch = results[0];
+    if (!selectedBranch) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Branch not found." });
+    }
+    if (selectedBranch.isPaused) {
+      return res.status(status.FORBIDDEN).json({
+        message:
+          selectedBranch.pauseReason ||
+          "This branch is not accepting orders right now.",
+      });
+    }
+
+    // 3. Fetch cart items with addons
+    const itemsInCart = await database.query.cartItems.findMany({
+      where: eq(cartItems.cartId, cartId),
+      with: {
+        product: true,
+        selectedAddons: {
+          with: {
+            addonItem: true,
+          },
+        },
+      },
+    });
+
+    if (itemsInCart.length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Cannot place an order with an empty cart." });
+    }
+
+    // 4. Create order
+    const [insertedOrder] = await database
+      .insert(orders)
+      .values({
+        ...formData, // name, phoneNumber, location, type, etc.
+        userId,
+        branchId,
+      })
+      .returning();
+
+    // 5. Insert order items + addons
+    for (const item of itemsInCart) {
+      if (!item.product) {
+        return res.status(status.BAD_REQUEST).json({
+          message: `Product with ID ${item.productId} not found. Order cannot be placed.`,
+        });
       }
 
-      // 4. Create the order
-      const [insertedOrder] = await tx
-        .insert(orders)
+      // Insert main order item
+      const [insertedItem] = await database
+        .insert(orderItems)
         .values({
-          ...formData,
-          userId,
-          branchId,
-        })
-        .returning();
-
-      const newOrderItems = itemsInCart.map((item) => {
-        if (!item.product) {
-          throw new Error(
-            `Product with ID ${item.productId} not found. Order cannot be placed.`
-          );
-        }
-        return {
           orderId: insertedOrder.id,
           productId: item.productId,
           productName: item.product.name,
           quantity: item.quantity,
-          price: item.product.price,
+          price: String(item.product.price),
           instructions: item.instructions || "",
-          discount: item.product.discount || 0,
-        };
-      });
+          discount: Number(item.product.discount) || 0,
+        })
+        .returning();
 
-      await tx.insert(orderItems).values(newOrderItems);
+      // Insert addons if any
+      if (item.selectedAddons?.length > 0) {
+        const addonsToInsert = item.selectedAddons.map((addon) => ({
+          orderItemId: insertedItem.id, // ✅ correct relation
+          addonItemId: addon.addonItemId,
+          quantity: addon.quantity,
+          price: String(addon.addonItem?.price ?? 0),
+        }));
 
-      // 5. Clear the cart
-      await tx.delete(cartItems).where(eq(cartItems.cartId, cartId));
+        await database.insert(orderAddons).values(addonsToInsert);
+      }
+    }
 
-      return insertedOrder;
-    });
+    // 6. Clear cart
+    await database.delete(cartItems).where(eq(cartItems.cartId, cartId));
 
     return res.status(status.CREATED).json({
       message: "Order placed successfully!",
-      data: newOrder,
+      data: insertedOrder,
     });
   } catch (error) {
     logger.error("Failed to create order:", error);
@@ -177,25 +193,41 @@ export const fetchController = async (req: Request, res: Response) => {
       orderList = await database.query.orders.findMany({
         orderBy: (orders, { desc }) => [desc(orders.createdAt)],
         with: {
-          orderItems: true,
+          orderItems: {
+            with: {
+              orderAddons: {
+                with: {
+                  addonItem: true,
+                },
+              },
+            },
+          },
         },
       });
     } else if (userRole === "manager") {
-      const branch = await database.query.branch.findFirst({
+      const branchData = await database.query.branch.findFirst({
         where: (branch, { eq }) => eq(branch.manager, userId),
       });
-      console.log("This is branch", branch);
-      if (!branch) {
+
+      if (!branchData) {
         return res.status(status.FORBIDDEN).json({
           message: "No branch assigned to this manager.",
         });
       }
 
       orderList = await database.query.orders.findMany({
-        where: (orders, { eq }) => eq(orders.branchId, branch.id),
+        where: (orders, { eq }) => eq(orders.branchId, branchData.id),
         orderBy: (orders, { desc }) => [desc(orders.createdAt)],
         with: {
-          orderItems: true,
+          orderItems: {
+            with: {
+              orderAddons: {
+                with: {
+                  addonItem: true, // ✅ fetch addon details
+                },
+              },
+            },
+          },
         },
       });
     } else {
@@ -266,7 +298,18 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
     const orderDetails = await database.query.orders.findFirst({
       where: eq(orders.id, id),
       with: {
-        orderItems: true,
+        orderItems: {
+          with: {
+            product: true,
+            orderAddons: {
+              with: {
+                addonItem: true,
+              },
+            },
+          },
+        },
+        user: true, // optional: agar order ke user ka data bhi chahiye
+        branch: true, // optional: agar branch ka data bhi chahiye
       },
     });
 
@@ -279,7 +322,7 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
       data: orderDetails,
     });
   } catch (error) {
-    logger.error("Failed to create order:", error);
+    logger.error("Failed to fetch order:", error);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
@@ -775,6 +818,11 @@ export const getOrdersByRiderIdController = async (
         orderItems: {
           with: {
             product: true,
+            orderAddons: {
+              with: {
+                addonItem: true,
+              },
+            },
           },
         },
       },
@@ -798,8 +846,6 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
   try {
     const rider = req.user;
 
-    console.log("This is ridder:", rider);
-
     if (!rider) {
       return res
         .status(status.UNAUTHORIZED)
@@ -815,13 +861,10 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
     const riderOrders = await database.query.orders.findMany({
       where: and(
         eq(orders.riderId, rider.id),
-
         inArray(orders.status, ["confirmed", "accepted_by_rider", "on_the_way"])
       ),
-
       with: {
         branch: true,
-        // user: true,
         orderItems: {
           columns: {
             productName: true,
@@ -831,14 +874,16 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
           },
           with: {
             product: true,
+            orderAddons: {
+              with: {
+                addonItem: true,
+              },
+            },
           },
         },
       },
-
       orderBy: [desc(orders.createdAt)],
     });
-
-    console.log("This is the rider orders:", riderOrders);
 
     return res.status(status.OK).json({
       message: "Rider's active orders fetched successfully.",
@@ -888,6 +933,11 @@ export const getRiderDeliveredOrdersController = async (
           },
           with: {
             product: true,
+            orderAddons: {
+              with: {
+                addonItem: true,
+              },
+            },
           },
         },
       },

@@ -1,13 +1,13 @@
 import { database } from "@/configs/connection.config";
-import { cart, cartItems } from "@/schema/schema";
-import { and, eq } from "drizzle-orm";
+import { cart, cartItemAddons, cartItems, products } from "@/schema/schema";
+import { addonItem } from "@/schema/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { Request, Response } from "express";
 import status from "http-status";
 
 export const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-
     const { productId, quantity = 1, notes } = req.body;
 
     if (!productId) {
@@ -16,12 +16,11 @@ export const addToCart = async (req: Request, res: Response) => {
         .json({ message: "Product Id is required" });
     }
 
+    // --- Find or Create Cart (Your existing logic is perfect) ---
     let cartId: string;
-
     const existingCart = await database.query.cart.findFirst({
       where: eq(cart.userId, userId),
     });
-
     if (existingCart) {
       cartId = existingCart.id;
     } else {
@@ -32,6 +31,18 @@ export const addToCart = async (req: Request, res: Response) => {
       cartId = newCart.id;
     }
 
+    // --- Check for product details first to get addon info ---
+    const productDetails = await database.query.products.findFirst({
+      where: eq(products.id, productId),
+    });
+
+    if (!productDetails) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Product not found." });
+    }
+
+    // --- Add or Update Cart Item (Your existing logic is mostly fine) ---
     const existingItem = await database.query.cartItems.findFirst({
       where: and(
         eq(cartItems.cartId, cartId),
@@ -39,25 +50,119 @@ export const addToCart = async (req: Request, res: Response) => {
       ),
     });
 
+    let newCartItem;
+
     if (existingItem) {
-      await database
+      const [updatedItem] = await database
         .update(cartItems)
         .set({
           quantity: existingItem.quantity + quantity,
           instructions: notes || existingItem.instructions,
         })
-        .where(eq(cartItems.id, existingItem.id));
+        .where(eq(cartItems.id, existingItem.id))
+        .returning();
+      newCartItem = updatedItem;
     } else {
-      await database.insert(cartItems).values({
-        cartId,
-        productId,
-        quantity,
-        instructions: notes,
+      const [insertedItem] = await database
+        .insert(cartItems)
+        .values({
+          cartId,
+          productId,
+          quantity,
+          instructions: notes,
+        })
+        .returning();
+      newCartItem = insertedItem;
+    }
+
+    // --- NEW LOGIC: Fetch available addons to return to the frontend ---
+    let availableAddons: any[] = [];
+    if (productDetails.addonItemIds && productDetails.addonItemIds.length > 0) {
+      availableAddons = await database.query.addonItem.findMany({
+        where: inArray(addonItem.id, productDetails.addonItemIds),
       });
     }
 
-    return res.status(status.OK).json({ message: "Item added to cart." });
+    return res.status(status.OK).json({
+      message: "Item added to cart.",
+      // Return the cart item ID and addons so the frontend knows what to do next
+      cartItemId: newCartItem.id,
+      availableAddons: availableAddons,
+    });
   } catch (err) {
+    console.error("Add to cart error:", err);
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ error: "Something went wrong." });
+  }
+};
+
+export const addAddonToCartItem = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { productId, addonItemId, quantity = 1 } = req.body;
+
+    if (!productId || !addonItemId) {
+      return res
+        .status(status.UNPROCESSABLE_ENTITY)
+        .json({ message: "productId and addonItemId are required." });
+    }
+
+    // Step 1: Find the cartItem for this product & user
+    const parentCartItem = await database.query.cartItems.findFirst({
+      where: and(
+        eq(cartItems.productId, productId),
+        eq(
+          cartItems.cartId,
+          database
+            .select({ id: cart.id })
+            .from(cart)
+            .where(eq(cart.userId, userId)) // ensure correct user’s cart
+        )
+      ),
+      with: {
+        cart: { columns: { userId: true } },
+        product: { columns: { addonItemIds: true } },
+      },
+    });
+
+    if (!parentCartItem) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Cart item not found for this product." });
+    }
+
+    if (!parentCartItem.product?.addonItemIds?.includes(addonItemId)) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "This addon is not valid for the selected product." });
+    }
+
+    const existingAddon = await database.query.cartItemAddons.findFirst({
+      where: and(
+        eq(cartItemAddons.cartItemId, parentCartItem.id),
+        eq(cartItemAddons.addonItemId, addonItemId)
+      ),
+    });
+
+    if (existingAddon) {
+      // Update quantity instead of adding duplicate row
+      await database
+        .update(cartItemAddons)
+        .set({ quantity: existingAddon.quantity + quantity })
+        .where(eq(cartItemAddons.id, existingAddon.id));
+    } else {
+      // Insert new row
+      await database.insert(cartItemAddons).values({
+        cartItemId: parentCartItem.id,
+        addonItemId,
+        quantity,
+      });
+    }
+
+    return res.status(status.OK).json({ message: "Addon added successfully." });
+  } catch (err) {
+    console.error("Add addon to cart error:", err);
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ error: "Something went wrong." });
@@ -115,7 +220,7 @@ export const fetchController = async (req: Request, res: Response) => {
     const userId = req.user!.id;
 
     const userCartWithItems = await database.query.cart.findFirst({
-      where: (cart, { eq }) => eq(cart.userId, userId),
+      where: eq(cart.userId, userId),
       with: {
         cartItems: {
           with: {
@@ -124,10 +229,38 @@ export const fetchController = async (req: Request, res: Response) => {
                 id: true,
                 name: true,
                 description: true,
-                image: true,
                 price: true,
                 discount: true,
+                image: true,
+                size: true,
                 addonItemIds: true,
+              },
+            },
+            selectedAddons: {
+              columns: {
+                quantity: true, // from cartItemAddon
+              },
+              with: {
+                addonItem: {
+                  columns: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    price: true,
+                    discount: true,
+                    image: true,
+                    size: true,
+                  },
+                  with: {
+                    addon: {
+                      columns: {
+                        id: true,
+                        name: true,
+                        description: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -136,8 +269,8 @@ export const fetchController = async (req: Request, res: Response) => {
     });
 
     const itemsToReturn = userCartWithItems?.cartItems || [];
-    console.log(itemsToReturn);
-    // 4. Send the array of items back to the frontend.
+    console.log("itemsToReturn", itemsToReturn);
+
     return res.status(status.OK).json({
       message: "Cart fetched successfully",
       data: itemsToReturn,
@@ -155,24 +288,23 @@ export const updateCartItem = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { productId, quantity } = req.body;
 
-    
-    if (!productId || typeof quantity !== 'number' || quantity < 0) {
+    if (!productId || typeof quantity !== "number" || quantity < 0) {
       return res.status(status.BAD_REQUEST).json({
         message: "A valid productId and a non-negative quantity are required.",
       });
     }
 
-    
     const userCart = await database.query.cart.findFirst({
       where: eq(cart.userId, userId),
-      columns: { id: true }, 
+      columns: { id: true },
     });
 
     if (!userCart) {
-      return res.status(status.NOT_FOUND).json({ message: "Cart not found for this user." });
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Cart not found for this user." });
     }
 
-    
     if (quantity === 0) {
       const deletedItems = await database
         .delete(cartItems)
@@ -185,42 +317,41 @@ export const updateCartItem = async (req: Request, res: Response) => {
         .returning();
 
       if (deletedItems.length === 0) {
-        return res.status(status.NOT_FOUND).json({ message: "Item not found in cart to delete." });
+        return res
+          .status(status.NOT_FOUND)
+          .json({ message: "Item not found in cart to delete." });
       }
 
       return res.status(status.OK).json({
         message: "Item removed from cart as quantity was set to 0.",
       });
     }
-    
-    
+
     const updatedItems = await database
       .update(cartItems)
       .set({ quantity: quantity })
       .where(
-        
         and(
           eq(cartItems.cartId, userCart.id),
           eq(cartItems.productId, productId)
         )
       )
-      .returning(); 
+      .returning();
 
-      
     if (updatedItems.length === 0) {
-      return res.status(status.NOT_FOUND).json({ message: "Item not found in cart to update." });
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Item not found in cart to update." });
     }
 
-    
     return res.status(status.OK).json({
       message: "Item quantity updated successfully.",
-      data: updatedItems[0], 
+      data: updatedItems[0],
     });
-
   } catch (err) {
     console.error("Update cart item error:", err);
     return res.status(status.INTERNAL_SERVER_ERROR).json({
-      error: "Something went wrong."
+      error: "Something went wrong.",
     });
   }
 };

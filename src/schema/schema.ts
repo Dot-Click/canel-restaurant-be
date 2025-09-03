@@ -221,8 +221,30 @@ export const orderItems = pgTable("orderItems", {
   instructions: varchar("instructions"),
 });
 
+export const orderAddons = pgTable("order_addons", {
+  id: uuid("id").primaryKey(),
+  orderItemId: uuid("order_item_id")
+    .notNull()
+    .references(() => orderItems.id),
+  addonItemId: uuid("addon_item_id")
+    .notNull()
+    .references(() => addonItem.id),
+  quantity: integer("quantity").notNull().default(1),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(), // snapshot of addon price
+});
+
+export const orderAddonsRelations = relations(orderAddons, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderAddons.orderItemId],
+    references: [orderItems.id],
+  }),
+  addonItem: one(addonItem, {
+    fields: [orderAddons.addonItemId],
+    references: [addonItem.id],
+  }),
+}));
+
 export const ordersRelations = relations(orders, ({ one, many }) => ({
-  // The old 'cart' relation is gone. Now an order has many 'items'.
   orderItems: many(orderItems),
   user: one(users, {
     fields: [orders.userId],
@@ -234,7 +256,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
@@ -243,6 +265,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.productId],
     references: [products.id],
   }),
+  orderAddons: many(orderAddons),
 }));
 
 // TODO Global order status:
@@ -263,6 +286,17 @@ export const cart = pgTable("cart", {
   ...timeStamps,
 });
 
+export const cartItemAddons = pgTable("cartItemAddon", {
+  id: uuid().primaryKey(),
+  cartItemId: foreignkeyRef("cart_item_id", () => cartItems.id, {
+    onDelete: "cascade", // If the main cart item is deleted, its addons are also deleted.
+  }).notNull(),
+  addonItemId: foreignkeyRef("addon_item_id", () => addonItem.id, {
+    onDelete: "cascade", // If the addon item is deleted from the system, remove it from carts.
+  }).notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+});
+
 export const cartItems = pgTable("cartItem", {
   id: uuid().primaryKey(),
   productId: foreignkeyRef("product_id", () => products.id, {
@@ -279,11 +313,23 @@ export const cartrelation = relations(cart, ({ many }) => ({
   cartItems: many(cartItems),
 }));
 
-export const cartItemRelations = relations(cartItems, ({ one }) => ({
+export const cartItemRelations = relations(cartItems, ({ one, many }) => ({
   cart: one(cart, { fields: [cartItems.cartId], references: [cart.id] }),
   product: one(products, {
     fields: [cartItems.productId],
     references: [products.id],
+  }),
+  selectedAddons: many(cartItemAddons),
+}));
+
+export const cartItemAddonsRelations = relations(cartItemAddons, ({ one }) => ({
+  cartItem: one(cartItems, {
+    fields: [cartItemAddons.cartItemId],
+    references: [cartItems.id],
+  }),
+  addonItem: one(addonItem, {
+    fields: [cartItemAddons.addonItemId],
+    references: [addonItem.id],
   }),
 }));
 

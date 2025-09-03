@@ -55,7 +55,7 @@ export const insertController = async (req: Request, res: Response) => {
     if (!data) {
       logger.error("Validation failed", error);
       return res.status(status.UNPROCESSABLE_ENTITY).json({
-        message: "Validation error",
+        message: "Please provide all nesscary data.",
         error: error?.format(),
       });
     }
@@ -94,7 +94,7 @@ export const insertController = async (req: Request, res: Response) => {
 
     if (insertedProduct[0]) {
       return res.status(status.CREATED).json({
-        message: "Product inserted successfully",
+        message: "Product added successfully",
         data: insertedProduct[0],
       });
     } else {

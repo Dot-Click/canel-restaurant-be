@@ -105,7 +105,7 @@ export const updateBrandingController = async (req: Request, res: Response) => {
     if (Object.keys(dataToUpdate).length === 0) {
       return res
         .status(status.BAD_REQUEST)
-        .json({ message: "No data provided for update." });
+        .json({ message: "No data provided." });
     }
 
     dataToUpdate.updatedAt = new Date();
