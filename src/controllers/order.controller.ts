@@ -332,8 +332,6 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
 export const createPosOrderController = async (req: Request, res: Response) => {
   const { items, ...formData } = req.body;
 
-  // 1. This is YOUR (the admin's) ID from the middleware.
-  //    This is the ID associated with the temporary cart in the database.
   const adminUserId = req.user!.id;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -374,7 +372,7 @@ export const createPosOrderController = async (req: Request, res: Response) => {
         .insert(orders)
         .values({
           ...formData,
-          userId: customerUserId, // The order belongs to the customer
+          userId: customerUserId,
         })
         .returning();
 
@@ -389,25 +387,18 @@ export const createPosOrderController = async (req: Request, res: Response) => {
       }));
       await tx.insert(orderItems).values(newOrderItems);
 
-      // =================================================================
-      //  THE GOD DAMN FIX IS HERE
-      // =================================================================
-      // 5. Find the cart belonging to YOU, THE ADMIN.
       const adminCart = await tx.query.cart.findFirst({
         where: eq(cart.userId, adminUserId), // Use YOUR ID from the middleware
       });
 
-      // If YOU have a cart in the database...
       if (adminCart) {
         const cartIdToDelete = adminCart.id;
         logger.info(
           `POS order created. Clearing admin's (${adminUserId}) temporary cart: ${cartIdToDelete}.`
         );
 
-        // ...delete all items inside that cart...
         await tx.delete(cartItems).where(eq(cartItems.cartId, cartIdToDelete));
 
-        // ...and delete the main cart record itself.
         await tx.delete(cart).where(eq(cart.id, cartIdToDelete));
       } else {
         logger.warn(

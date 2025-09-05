@@ -215,6 +215,67 @@ export const deleteFromCart = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteAddonFromCart = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { cartItemId, addonItemId } = req.params;
+
+    if (!cartItemId || !addonItemId) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Both cartItemId and addonItemId are required." });
+    }
+
+    const [userCart] = await database
+      .select({ id: cart.id })
+      .from(cart)
+      .where(eq(cart.userId, userId));
+
+    if (!userCart) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Cart not found for this user." });
+    }
+
+    const [itemToModify] = await database
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.productId, cartItemId));
+
+    if (!itemToModify || itemToModify.cartId !== userCart.id) {
+      return res.status(status.FORBIDDEN).json({
+        message: "Access denied: This cart item does not belong to the user.",
+      });
+    }
+
+    const deletedAddons = await database
+      .delete(cartItemAddons)
+      .where(
+        and(
+          eq(cartItemAddons.cartItemId, itemToModify.id),
+          eq(cartItemAddons.addonItemId, addonItemId)
+        )
+      )
+      .returning();
+
+    if (deletedAddons.length === 0) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Addon not found for this cart item." });
+    }
+
+    return res.status(status.OK).json({
+      message: "Addon removed from item successfully.",
+      data: deletedAddons[0],
+    });
+  } catch (error) {
+    console.error("Error removing addon from cart:", error);
+    return res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ error: "Something went wrong." });
+  }
+};
+
 export const fetchController = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
