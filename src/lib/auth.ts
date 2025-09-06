@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { env } from "@/utils/env.utils";
 import {
   admin as adminPlugin,
+  bearer,
   emailOTP,
   phoneNumber,
   // phoneNumber,
@@ -157,6 +158,7 @@ export const auth = betterAuth({
         getTempName: (phoneNumber) => phoneNumber,
       },
     }),
+    bearer()
   ],
   user: {
     modelName: "users",
