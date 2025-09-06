@@ -1,6 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import { auth } from "@/lib/auth";  // Your Better Auth instance
 import { fromNodeHeaders } from "better-auth/node"; // Converts Node headers for getSession
+import { users } from "@/schema/schema"; 
+
+type User = typeof users.$inferSelect;
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
 
 export const protectRoute = async (req: Request, res: Response, next: NextFunction) => {
   try {
