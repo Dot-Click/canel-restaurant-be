@@ -17,11 +17,9 @@ declare global {
 export const protectRoute = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const headers = fromNodeHeaders(req.headers);
-    console.log("This is the request headers", req.headers)
-    console.log("This is the request headers node handler", headers)
     // Try cookie/session first
     let session = await auth.api.getSession({ headers });
-    console.log("this is session:", session)
+    // console.log("this is session:", session)
     // If no valid session, try Bearer token
     if (!session?.user) {
       session = await auth.api.getSession({ headers });

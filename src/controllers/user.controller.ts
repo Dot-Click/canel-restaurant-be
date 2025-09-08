@@ -110,8 +110,8 @@ export const fetchStaffController = async (req: Request, res: Response) => {
   try {
     const searchQuery = req.query.search as string | undefined;
 
-    console.log("This is the search query", searchQuery);
 
+    
     const query = database
       .select({
         name: users.fullName,
@@ -125,7 +125,7 @@ export const fetchStaffController = async (req: Request, res: Response) => {
       .where(not(eq(users.role, "user")))
       .$dynamic();
 
-    console.log("This is the query", query);
+      
 
     if (searchQuery) {
       query.where(like(users.fullName, `%${searchQuery}%`));
@@ -133,7 +133,7 @@ export const fetchStaffController = async (req: Request, res: Response) => {
 
     const staffMembers = await query;
 
-    console.log("This is the staff members", staffMembers);
+    
 
     return res.status(status.OK).json({
       message: "Staff fetched successfully",
@@ -156,7 +156,7 @@ export const deleteStaffController = async (req: Request, res: Response) => {
         message: "Staff ID is required.",
       });
     }
-    console.log(staffId);
+    
     const deletedStaff = await database
       .delete(users)
       .where(eq(users.id, staffId))
@@ -164,7 +164,7 @@ export const deleteStaffController = async (req: Request, res: Response) => {
         id: users.id,
         name: users.fullName,
       });
-    console.log("This is the deleted staff", deletedStaff);
+      
     if (deletedStaff.length === 0) {
       return res.status(status.NOT_FOUND).json({
         message: "Staff member not found.",
@@ -358,7 +358,7 @@ export const updateUserLocation = async (req: Request, res: Response) => {
         area: users.selectedArea,
       });
 
-    console.log("this is the updated result", updatedResult);
+      
 
     if (updatedResult.length === 0) {
       return res.status(status.NOT_FOUND).json({
@@ -439,8 +439,7 @@ export const fetchRiderTipsController = async (req: Request, res: Response) => {
       0
     );
 
-    console.log("This is the rider orders with tips", riderOrdersWithTips);
-    console.log("This is the total tip for the rider", totalTipForRider);
+    
 
     return res.status(status.OK).json({
       message: `Tips fetched for rider ${rider.fullName} successfully`,

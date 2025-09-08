@@ -14,6 +14,8 @@ import {
   addTipToOrderController,
   fetchNewVsRecurringOrdersController,
   getRiderDeliveredOrdersController,
+  // fetchRidersEarnedMoney,
+  fetchRiderEarnedMoneyById,
   // updateRiderOrderDelivery,
 } from "@/controllers/order.controller";
 import {
@@ -66,6 +68,10 @@ orderRoutes.patch(
   protectRoute,
   setBranchPauseStatus
 );
+
+// orderRoutes.get("/fetch-earned-money", protectRoute, fetchRidersEarnedMoney)
+
+orderRoutes.get("/fetch-earned-money/:id", protectRoute, fetchRiderEarnedMoneyById)
 
 orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
 

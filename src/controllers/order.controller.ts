@@ -473,6 +473,167 @@ export const assignRiderController = async (req: Request, res: Response) => {
   }
 };
 
+
+export const fetchRidersEarnedMoney = async (_req: Request, res: Response) => {
+  try {
+    // Step 1: Create a subquery to calculate the total value of addons for each order item.
+    // This pre-aggregation prevents row duplication issues in the main query.
+    const addonTotalsSq = database
+      .select({
+        orderItemId: orderAddons.orderItemId,
+        total: sql<string>`sum(${orderAddons.price} * ${orderAddons.quantity})`.as('total'),
+      })
+      .from(orderAddons)
+      .groupBy(orderAddons.orderItemId)
+      .as('addon_totals_sq');
+
+      const orderItemsTotalSq = database
+      .select({
+        orderId: orderItems.orderId,
+        total: sql<string>`sum(
+          (${orderItems.price} * ${orderItems.quantity}) +
+          coalesce(${addonTotalsSq.total}::numeric, 0)
+        )`.as('total'),
+      })
+      .from(orderItems)
+      .leftJoin(addonTotalsSq, eq(orderItems.id, addonTotalsSq.orderItemId))
+      .groupBy(orderItems.orderId)
+      .as('order_items_total_sq');
+
+    // Step 3: Main query to aggregate delivered orders and earnings for each rider.
+    const ridersData = await database
+      .select({
+        riderId: users.id,
+        riderName: users.fullName,
+        profilePic: users.profilePic,
+        phoneNumber: users.phoneNumber,
+        deliveredOrdersCount: sql<number>`count(${orders.id})`.mapWith(Number),
+        totalEarned: sql<string>`
+          COALESCE(SUM(${orderItemsTotalSq.total}), 0) + 
+          COALESCE(SUM(${orders.tip}), 0)
+        `.mapWith(Number), // SQL handles the sum of items/addons + tips
+      })
+      .from(users)
+      // Use LEFT JOIN to include riders with zero delivered orders
+      .leftJoin(orders, and(
+        eq(users.id, orders.riderId),
+        eq(orders.status, 'delivered')
+      ))
+      .leftJoin(orderItemsTotalSq, eq(orders.id, orderItemsTotalSq.orderId))
+      .where(eq(users.role, 'rider'))
+      // Group by all non-aggregated columns from the 'users' table
+      .groupBy(users.id, users.fullName, users.profilePic, users.phoneNumber)
+      // Order by the highest earners first for a more useful admin view
+      .orderBy(desc(sql`
+          COALESCE(SUM(${orderItemsTotalSq.total}), 0) + 
+          COALESCE(SUM(${orders.tip}), 0)
+      `));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Rider earnings data fetched successfully.',
+      data: ridersData,
+    });
+
+  } catch (error) {
+    console.error('Error fetching rider earnings:', error);
+    
+    // Provide a structured error response
+    if (error instanceof Error) {
+        return res.status(500).json({
+            success: false,
+            message: "An internal server error occurred while fetching rider data.",
+            error: error.message
+        });
+    }
+    
+    return res.status(500).json({
+        success: false,
+        message: "An unknown internal server error occurred."
+    });
+  }
+};
+
+export const fetchRiderEarnedMoneyById = async (req: Request, res: Response) => {
+  try {
+    const { id:riderId } = req.params;
+    console.log(req.params)
+    if (!riderId) {
+      return res.status(400).json({ success: false, message: 'Rider ID is required.' });
+    }
+
+    // The subqueries are the same as before, calculating order totals
+    const addonTotalsSq = database
+      .select({
+        orderItemId: orderAddons.orderItemId,
+        total: sql<string>`sum(${orderAddons.price} * ${orderAddons.quantity})`.as('total'),
+      })
+      .from(orderAddons)
+      .groupBy(orderAddons.orderItemId)
+      .as('addon_totals_sq');
+
+      const orderItemsTotalSq = database
+      .select({
+        orderId: orderItems.orderId,
+        total: sql<string>`sum(
+          (${orderItems.price} * ${orderItems.quantity}) +
+          coalesce(${addonTotalsSq.total}::numeric, 0)
+        )`.as('total'),
+      })
+      .from(orderItems)
+      .leftJoin(addonTotalsSq, eq(orderItems.id, addonTotalsSq.orderItemId))
+      .groupBy(orderItems.orderId)
+      .as('order_items_total_sq');
+    
+      const riderData = await database
+      .select({
+        riderId: users.id,
+        riderName: users.fullName,
+        profilePic: users.profilePic,
+        deliveredOrdersCount: sql<number>`count(${orders.id})`.mapWith(Number),
+        totalEarned: sql<string>`
+          COALESCE(SUM(${orderItemsTotalSq.total}), 0) + 
+          COALESCE(SUM(${orders.tip}), 0)
+        `.mapWith(Number),
+      })
+      .from(users)
+      .leftJoin(orders, and(eq(users.id, orders.riderId), eq(orders.status, 'delivered')))
+      .leftJoin(orderItemsTotalSq, eq(orders.id, orderItemsTotalSq.orderId))
+      .where(and(
+        eq(users.role, 'rider'),
+        eq(users.id, riderId)
+      ))
+      .groupBy(users.id, users.fullName, users.profilePic);
+
+      
+    const performanceData = riderData[0];
+
+    if (!performanceData) {
+      const riderInfo = await database.query.users.findFirst({ where: eq(users.id, riderId) });
+      if (!riderInfo) return res.status(404).json({ success: false, message: 'Rider not found.' });
+      
+      return res.status(200).json({
+          success: true,
+          data: {
+              riderId: riderInfo.id,
+              riderName: riderInfo.fullName,
+              profilePic: riderInfo.profilePic,
+              deliveredOrdersCount: 0,
+              totalEarned: 0,
+          },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: performanceData,
+    });
+
+  } catch (error) {
+    console.error('Error fetching rider earnings by ID:', error);
+    return res.status(500).json({ success: false, message: 'An internal server error occurred.' });
+  }
+};
 // Riders related orders.....
 
 /**
@@ -889,7 +1050,7 @@ export const getRiderOrdersController = async (req: Request, res: Response) => {
 };
 
 /**
- * This is to fetch orders with the delivered status for rider
+ * This is to fetch orders with the delivered status for rider, also for the admin.
  */
 export const getRiderDeliveredOrdersController = async (
   req: Request,
