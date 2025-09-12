@@ -81,7 +81,7 @@ export const protectRoute = async (
     }
 
     const session = await auth.api.getSession({ headers });
-
+    console.log("session", session);
     if (!session || !session.user) {
       return res.status(401).json({
         error: "UNAUTHORIZED",
