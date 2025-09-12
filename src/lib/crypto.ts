@@ -17,7 +17,7 @@ export const encrypt = (message: any, key: any) => {
 
   return ciphertext;
 };
-
+// Just for deployment
 export const decrypt = (message: any, key: any) => {
   const algorythm = "aes-128-ecb";
   const hash = Crypto.createHash("sha256");
