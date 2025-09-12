@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { auth } from "@/lib/auth";  // Your Better Auth instance
+import { auth } from "@/lib/auth"; // Your Better Auth instance
 import { fromNodeHeaders } from "better-auth/node"; // Converts Node headers for getSession
-import { users } from "@/schema/schema"; 
+import { users } from "@/schema/schema";
 import status from "http-status";
 
 type User = typeof users.$inferSelect;
@@ -14,14 +14,17 @@ declare global {
   }
 }
 
-
-export const protectRoute = async (req: Request, res: Response, next: NextFunction) => {
+export const protectRoute = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const headers = fromNodeHeaders(req.headers);
-    
+
     let session = await auth.api.getSession({ headers });
-    
-    console.log("session", session)
+
+    console.log("session", session);
 
     if (!session?.user) {
       session = await auth.api.getSession({ headers });

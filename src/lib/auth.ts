@@ -37,16 +37,16 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: isProduction,
-    crossSubDomainCookies: {
-      enabled: true,
-      domain: env.FRONTEND_DOMAIN
-    },
+    // crossSubDomainCookies: {
+    //   enabled: true,
+    //   domain: env.FRONTEND_DOMAIN,
+    // },
     cookies: {
       session_token: {
         attributes: {
-          sameSite: isProduction ? "none" : "none",
+          sameSite: isProduction ? "none" : "lax",
           httpOnly: isProduction,
-          secure: true,
+          secure: isProduction,
         },
       },
     },
@@ -158,7 +158,7 @@ export const auth = betterAuth({
         getTempName: (phoneNumber) => phoneNumber,
       },
     }),
-    bearer()
+    bearer(),
   ],
   user: {
     modelName: "users",
