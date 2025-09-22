@@ -9,7 +9,7 @@ import { checkPermission } from "@/middlewares/checkpermission.middleware";
 import { Router } from "express";
 
 const addonItemsRoutes = Router();
-
+// For deployment only
 addonItemsRoutes.post(
   "/create-addonitem",
   protectRoute,
