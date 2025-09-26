@@ -110,8 +110,6 @@ export const fetchStaffController = async (req: Request, res: Response) => {
   try {
     const searchQuery = req.query.search as string | undefined;
 
-
-    
     const query = database
       .select({
         name: users.fullName,
@@ -125,15 +123,11 @@ export const fetchStaffController = async (req: Request, res: Response) => {
       .where(not(eq(users.role, "user")))
       .$dynamic();
 
-      
-
     if (searchQuery) {
       query.where(like(users.fullName, `%${searchQuery}%`));
     }
 
     const staffMembers = await query;
-
-    
 
     return res.status(status.OK).json({
       message: "Staff fetched successfully",
@@ -156,7 +150,7 @@ export const deleteStaffController = async (req: Request, res: Response) => {
         message: "Staff ID is required.",
       });
     }
-    
+
     const deletedStaff = await database
       .delete(users)
       .where(eq(users.id, staffId))
@@ -164,7 +158,7 @@ export const deleteStaffController = async (req: Request, res: Response) => {
         id: users.id,
         name: users.fullName,
       });
-      
+
     if (deletedStaff.length === 0) {
       return res.status(status.NOT_FOUND).json({
         message: "Staff member not found.",
@@ -333,7 +327,7 @@ export const updateUserLocation = async (req: Request, res: Response) => {
 
     const { city, branch, deliveryType, area } = req.body;
 
-    if (!city || !branch || !deliveryType || !area) {
+    if (!city || !branch || !deliveryType) {
       return res
         .status(400)
         .json({ message: "Bad Request: Missing required location fields." });
@@ -357,8 +351,6 @@ export const updateUserLocation = async (req: Request, res: Response) => {
         deliveryType: users.selectedDeliveryType,
         area: users.selectedArea,
       });
-
-      
 
     if (updatedResult.length === 0) {
       return res.status(status.NOT_FOUND).json({
@@ -438,8 +430,6 @@ export const fetchRiderTipsController = async (req: Request, res: Response) => {
       (acc, order) => acc + parseFloat(order.tipAmount as string),
       0
     );
-
-    
 
     return res.status(status.OK).json({
       message: `Tips fetched for rider ${rider.fullName} successfully`,
