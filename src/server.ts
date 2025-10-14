@@ -33,7 +33,7 @@ import { userRoute } from "./routes/user.route";
 import { env } from "./utils/env.utils";
 import { smsRoute } from "./routes/sms.route";
 import { watiRoute } from "./routes/wati.route";
-// import { paymentRoutes } from "./routes/payment.route";
+import { paymentRoutes } from "./routes/payment.route";
 
 config();
 
@@ -122,7 +122,7 @@ app.use("/api/schedule/", scheduleRoute);
 app.use("/api/users/", userRoute);
 app.use("/api/broadcast/", smsRoute);
 app.use("/api/wati/", watiRoute);
-// app.use("/api/payment/", paymentRoutes);
+app.use("/api/payment/", paymentRoutes);
 app.use(unknownRoutes);
 
 httpServer.listen(port as number, () => {

@@ -1,55 +1,146 @@
-// import fetch from "node-fetch";
-// import { encrypt } from "../lib/crypto";
-// import { env } from "@/utils/env.utils";
+import fetch from "node-fetch";
+import { encrypt } from "../lib/crypto";
+import { Request, Response } from "express";
+import { env } from "@/utils/env.utils";
 
-// export default async function payTDC({
-//   data,
-//   merchantId,
-//   integratorId,
-//   terminalId,
-//   clientId,
-// }: any) {
-//   const body = {
-//     merchant_identify: {
-//       integratorId,
-//       merchantId,
-//       terminalId,
-//     },
-//     client_identify: {
-//       ipaddress: data.ip || "127.0.0.1",
-//       browser_agent: data.browser || "Chrome",
-//       mobile: { manufacturer: data.manufacturer || "Unknown" },
-//     },
-//     transaction: {
-//       trx_type: "compra",
-//       payment_method: "tdc",
-//       customer_id: data.customerId,
-//       card_number: data.cardNumber,
-//       expiration_date: data.expirationDate,
-//       cvv: encrypt(data.cvv, env.MERCANTILE_SECRET_KEY),
-//       currency: "ves",
-//       amount: data.amount,
-//       invoice_number: data.invoiceNumber,
-//     },
-//   };
+const GETAUTH_URL =
+  "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/getauth";
 
-//   console.log("this is the body:-", body);
+function buildMerchantIdentify() {
+  return {
+    integratorId: env.MERCANTILE_INTEGRATOR_ID,
+    merchantId: env.MERCANTILE_MERCHANT_ID,
+    terminalId: env.MERCANTILE_TERMINAL_ID,
+  };
+}
 
-//   const requestOptions = {
-//     method: "POST",
-//     headers: {
-//       "Content-Type": "application/json",
-//       "X-IBM-Client-ID": clientId,
-//     },
-//     body: JSON.stringify(body),
-//   };
+function buildClientIdentify(req: Request) {
+  // let ua = req.headers["user-agent"] || "unknown";
 
-//   const res = await fetch(
-//     "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/pay",
-//     requestOptions
-//   );
+  // const MAX_BROWSER_AGENT_LEN = 80;
+  // if (ua.length > MAX_BROWSER_AGENT_LEN) {
+  //   ua = ua.substring(0, MAX_BROWSER_AGENT_LEN);
+  // }
 
-//   const dataSecond = await res.json();
-//   console.log("This is the response:-", dataSecond);
-//   return dataSecond;
-// }
+  console.log("REQ>IP", req.ip);
+  return {
+    ipaddress: "127.0.0.1",
+    browser_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    mobile: {
+      manufacturer: "Samsung",
+    },
+  };
+}
+
+export const payTDC = async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+
+    const required = ["cardNumber", "expirationDate", "cvv", "amount"];
+    for (let field of required) {
+      if (!data[field]) {
+        return res.status(400).json({ error: `Missing field: ${field}` });
+      }
+    }
+    const encryptCvv = encrypt(data.cvv);
+    const body = {
+      merchant_identify: {
+        integratorId: env.MERCANTILE_INTEGRATOR_ID,
+        merchantId: env.MERCANTILE_MERCHANT_ID,
+        terminalId: env.MERCANTILE_TERMINAL_ID,
+      },
+      client_identify: {
+        ipaddress: "127.0.0.1",
+        browser_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        mobile: {
+          manufacturer: "Samsung",
+        },
+      },
+      transaction: {
+        trx_type: "compra",
+        payment_method: "tdd",
+        customer_id: data.customerId || "",
+        card_number: data.cardNumber,
+        expiration_date: data.expirationDate,
+        cvv: encryptCvv,
+        invoice_number: data.invoiceNumber,
+        currency: data.currency || "ves",
+        amount: data.amount,
+        twofactor_auth: data.twofactor_auth || "",
+      },
+    };
+
+    // Headers
+    const headers = {
+      "Content-Type": "application/json",
+      "X-IBM-Client-Id": env.MERCANTILE_CLIENT_ID,
+    };
+
+    const resp = await fetch(
+      "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/pay",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      }
+    );
+
+    const result = await resp.json();
+
+    if (!resp.ok) {
+      // console.log("API ERROR:-", result);
+      return res.status(resp.status).json({ error: result });
+    }
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Sandbox payment error:", error);
+    return res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
+  }
+};
+
+export const getAuthTDC = async (req: Request, res: Response) => {
+  try {
+    const { cardNumber, customerId } = req.body;
+    if (!cardNumber) {
+      return res.status(400).json({ error: "Missing cardNumber" });
+    }
+
+    const body = {
+      merchant_identify: buildMerchantIdentify(),
+      client_identify: buildClientIdentify(req),
+      transaction_authInfo: {
+        trx_type: "solaut",
+        payment_method: "tdd",
+        customer_id: customerId || "",
+        card_number: cardNumber,
+      },
+    };
+    console.log("Body", body);
+    const headers = {
+      "Content-Type": "application/json",
+      "X-IBM-Client-Id": env.MERCANTILE_CLIENT_ID,
+    };
+
+    const resp = await fetch(GETAUTH_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const result = await resp.json();
+
+    if (!resp.ok) {
+      console.error("getauth returned error:", result);
+      return res.status(resp.status).json(result);
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("getAuth error:", err);
+    return res
+      .status(500)
+      .json({ error: "Internal error", details: err.message });
+  }
+};

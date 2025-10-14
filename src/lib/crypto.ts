@@ -1,36 +1,46 @@
-import Crypto from "crypto";
+import { env } from "@/utils/env.utils";
 
-export const encrypt = (message: any, key: any) => {
-  const algorythm = "aes-128-ecb";
+var CryptoJS = require("crypto-js");
 
-  const hash = Crypto.createHash("sha256");
-  hash.update(key);
+// export function isEncrypted(val: string): boolean {
+//   if (typeof val !== "string" || val.trim() === "") return false;
 
-  const keyString = hash.copy().digest("hex");
-  const firstHalf = keyString.toString().slice(0, keyString.length / 2);
-  const keyHex = Buffer.from(firstHalf, "hex");
+//   try {
+//     const bytes = CryptoJS.AES.decrypt(val, env.MERCANTILE_ENCRYPTION_KEY);
+//     const txt = bytes.toString(CryptoJS.enc.Utf8);
+//     // If decrypt yields something non-empty, we guess it was encrypted
+//     return txt !== "";
+//   } catch (err) {
+//     return false;
+//   }
+// }
 
-  const cipher = Crypto.createCipheriv(algorythm, keyHex, null);
-
-  let ciphertext = cipher.update(message, "utf8", "base64");
-  ciphertext += cipher.final("base64");
+export function encrypt(text: string) {
+  var ciphertext = CryptoJS.AES.encrypt(
+    text,
+    env.MERCANTILE_ENCRYPTION_KEY
+  ).toString();
 
   return ciphertext;
-};
-// Just for deployment
-export const decrypt = (message: any, key: any) => {
-  const algorythm = "aes-128-ecb";
-  const hash = Crypto.createHash("sha256");
-  hash.update(key);
+}
 
-  const keyString = hash.copy().digest("hex");
-  const firstHalf = keyString.toString().slice(0, keyString.length / 2);
-  const keyHex = Buffer.from(firstHalf, "hex");
+export function decrypt(encrypted: string) {
+  if (!encrypted || typeof encrypted !== "string") return "";
 
-  const decipher = Crypto.createDecipheriv(algorythm, keyHex, null);
+  try {
+    const bytes = CryptoJS.AES.decrypt(
+      encrypted,
+      env.MERCANTILE_ENCRYPTION_KEY
+    );
+    const originalText = bytes.toString(CryptoJS.enc.Utf8);
 
-  let deciphertext = decipher.update(message, "base64", "utf8");
-  deciphertext += decipher.final("utf8");
+    if (originalText === "") {
+      return encrypted;
+    }
 
-  return deciphertext;
-};
+    return originalText;
+  } catch (err) {
+    console.error("Decrypt error:", err);
+    return encrypted;
+  }
+}
