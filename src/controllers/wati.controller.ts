@@ -158,6 +158,10 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
         totalPrice += productPrice * Number(quantity);
       }
 
+      if (type === "delivery") {
+        totalPrice += 3.99;
+      }
+
       const roundedTotalPrice = Number(totalPrice.toFixed(2));
 
       return { ...order, totalPrice: roundedTotalPrice };
