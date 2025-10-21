@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 import { env } from "@/utils/env.utils";
 
 const GETAUTH_URL =
-  "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/getauth";
+  "https://gw.3be3-22336bfa.us-east.apiconnect.appdomain.cloud/mercantil-banco/prod/v1/payment/getauth";
 
 function buildMerchantIdentify() {
   return {
@@ -22,13 +22,10 @@ function buildClientIdentify(req: Request) {
   //   ua = ua.substring(0, MAX_BROWSER_AGENT_LEN);
   // }
 
-  console.log("REQ>IP", req.ip);
+  console.log("REQ>IP", req.ips);
   return {
     ipaddress: "127.0.0.1",
     browser_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    mobile: {
-      manufacturer: "Samsung",
-    },
   };
 }
 
@@ -52,9 +49,6 @@ export const payTDC = async (req: Request, res: Response) => {
       client_identify: {
         ipaddress: "127.0.0.1",
         browser_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        mobile: {
-          manufacturer: "Samsung",
-        },
       },
       transaction: {
         trx_type: "compra",
@@ -62,7 +56,7 @@ export const payTDC = async (req: Request, res: Response) => {
         customer_id: data.customerId || "",
         card_number: data.cardNumber,
         expiration_date: data.expirationDate,
-        cvv: encryptCvv,
+        cvc: encryptCvv,
         invoice_number: data.invoiceNumber,
         currency: data.currency || "ves",
         amount: data.amount,
@@ -118,7 +112,7 @@ export const getAuthTDC = async (req: Request, res: Response) => {
         card_number: cardNumber,
       },
     };
-    console.log("Body", body);
+
     const headers = {
       "Content-Type": "application/json",
       "X-IBM-Client-Id": env.MERCANTILE_CLIENT_ID,

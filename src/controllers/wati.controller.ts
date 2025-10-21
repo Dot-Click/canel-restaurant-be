@@ -62,7 +62,7 @@ export const getMenuForWati = async (req: Request, res: Response) => {
     const finalBranchNameAndPrice = branchProducts
       .map((p, i) => `${i + 1}. ${p.name} - $${p.price}`)
       .join("\n");
-
+    console.log("Final Branch Name&Price:-", finalBranchNameAndPrice);
     return res
       .status(200)
       .json({ message: "Menu is presented", data: finalBranchNameAndPrice });
