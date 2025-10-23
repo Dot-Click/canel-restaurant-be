@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 import { env } from "@/utils/env.utils";
 
 const GETAUTH_URL =
-  "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/getauth";
+  "https://gw.3be3-22336bfa.us-east.apiconnect.appdomain.cloud/mercantil-banco/prod/v1/payment/getauth";
 
 function buildMerchantIdentify() {
   return {
