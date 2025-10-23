@@ -330,7 +330,6 @@ export const fetchController = async (req: Request, res: Response) => {
     });
 
     const itemsToReturn = userCartWithItems?.cartItems || [];
-    console.log("itemsToReturn", itemsToReturn);
 
     return res.status(status.OK).json({
       message: "Cart fetched successfully",
