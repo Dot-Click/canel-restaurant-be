@@ -1,46 +1,54 @@
-import { env } from "@/utils/env.utils";
+// const Crypto = require("crypto");
+import Crypto from "crypto";
 
-var CryptoJS = require("crypto-js");
+/*
+ * ======================================
+ * Funcion para cifrar los campos con AES
+ * ======================================
+ */
 
-// export function isEncrypted(val: string): boolean {
-//   if (typeof val !== "string" || val.trim() === "") return false;
+export const encrypt = (message: string, key: string): string => {
+  const algorythm = "aes-128-ecb";
+  // Convertir la llave secreta en un hash SHA256
+  const hash = Crypto.createHash("sha256");
+  hash.update(key);
 
-//   try {
-//     const bytes = CryptoJS.AES.decrypt(val, env.MERCANTILE_ENCRYPTION_KEY);
-//     const txt = bytes.toString(CryptoJS.enc.Utf8);
-//     // If decrypt yields something non-empty, we guess it was encrypted
-//     return txt !== "";
-//   } catch (err) {
-//     return false;
-//   }
-// }
+  // Obtener los primeros 16 bytes del hash
+  const keyString = hash.copy().digest("hex");
+  const firstHalf = keyString.toString().slice(0, keyString.length / 2);
+  const keyHex = Buffer.from(firstHalf, "hex");
 
-export function encrypt(text: string) {
-  var ciphertext = CryptoJS.AES.encrypt(
-    text,
-    env.MERCANTILE_ENCRYPTION_KEY
-  ).toString();
+  // Encriptacion del mensaje usando la clave nueva
+  const cipher = Crypto.createCipheriv(algorythm, keyHex, null);
 
-  return ciphertext;
-}
+  let ciphertext = cipher.update(message, "utf8", "base64");
+  ciphertext += cipher.final("base64");
 
-export function decrypt(encrypted: string) {
-  if (!encrypted || typeof encrypted !== "string") return "";
+  return ciphertext; // Valor devuelto en base64
+};
 
-  try {
-    const bytes = CryptoJS.AES.decrypt(
-      encrypted,
-      env.MERCANTILE_ENCRYPTION_KEY
-    );
-    const originalText = bytes.toString(CryptoJS.enc.Utf8);
+/*
+ * =========================================
+ * Funcion para descifrar los campos con AES
+ * =========================================
+ */
 
-    if (originalText === "") {
-      return encrypted;
-    }
+export const decrypt = (message: string, key: string): string => {
+  const algorythm = "aes-128-ecb";
+  // Convertir la llave secreta en un hash SHA256
+  const hash = Crypto.createHash("sha256");
+  hash.update(key);
 
-    return originalText;
-  } catch (err) {
-    console.error("Decrypt error:", err);
-    return encrypted;
-  }
-}
+  // Obtener los primeros 16 bytes del hash
+  const keyString = hash.copy().digest("hex");
+  const firstHalf = keyString.toString().slice(0, keyString.length / 2);
+  const keyHex = Buffer.from(firstHalf, "hex");
+
+  // Encriptacion del mensaje usando la clave nueva
+  const decipher = Crypto.createDecipheriv(algorythm, keyHex, null);
+
+  let deciphertext = decipher.update(message, "base64", "utf8");
+  deciphertext += decipher.final("utf8");
+
+  return deciphertext; // Valor devuelto en utf8
+};

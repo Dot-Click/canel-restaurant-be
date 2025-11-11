@@ -1,7 +1,9 @@
-Change phone number in navbar 
-show one button from admin navbar
-payment method ---- admin
-new clients vs old client --- admin
-status color --- admin
 
 
+-----------------------------------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-----------------------------------
+
+1. Banner not changing (needs to be fixed)
+2. Product gives error when we added. 
+3. Category and products navigation remove.
+4. Location page fixes
+5. Edit staff modal in english 
