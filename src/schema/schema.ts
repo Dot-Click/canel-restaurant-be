@@ -228,7 +228,7 @@ export const orderAddons = pgTable("order_addons", {
     .references(() => orderItems.id),
   addonItemId: uuid("addon_item_id")
     .notNull()
-    .references(() => addonItem.id),
+    .references(() => addonItem.id, { onDelete: "cascade" }),
   quantity: integer("quantity").notNull().default(1),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(), // snapshot of addon price
 });

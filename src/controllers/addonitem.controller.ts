@@ -1,6 +1,5 @@
 import { database } from "@/configs/connection.config";
 import {
-  addon,
   addonItem,
   addonItemInsertSchema,
   addonItemUpdateSchema,
@@ -98,7 +97,7 @@ export const createAddonItem = async (req: Request, res: Response) => {
 
 export const deleteAddonItem = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const { id } = req.params;
 
     if (!id) {
       res
@@ -106,7 +105,16 @@ export const deleteAddonItem = async (req: Request, res: Response) => {
         .json({ message: "Addon doesn't exit" });
     }
 
-    const db = await database.delete(addon).where(eq(addon.id, id)).returning();
+    const db = await database
+      .delete(addonItem)
+      .where(eq(addonItem.id, id))
+      .returning();
+
+    if (db.length === 0) {
+      return res
+        .status(status.NOT_FOUND)
+        .json({ message: "Addon item not found" });
+    }
 
     res.status(status.OK).json(db);
   } catch (error) {

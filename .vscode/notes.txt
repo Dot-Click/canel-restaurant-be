@@ -7,3 +7,6 @@
 3. Category and products navigation remove.
 4. Location page fixes
 5. Edit staff modal in english 
+
+
+Answer to point 15

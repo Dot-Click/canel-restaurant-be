@@ -60,10 +60,15 @@ export const fetchBrandingController = async (req: Request, res: Response) => {
 export const updateBrandingController = async (req: Request, res: Response) => {
   try {
     const form = formidable();
-    const [formData, files] = await form.parse<any, "logo" | "banner">(req);
-
+    const [formData, files] = await form.parse<
+      any,
+      "logo" | "banner" | "mainSection"
+    >(req);
+    console.log("Parsed Form Data (Fields):", formData);
+    console.log("Parsed Files:", files);
     const logoFile = files.logo?.[0];
     const bannerFile = files.banner?.[0];
+    const mainSectionFile = files.mainSection?.[0];
 
     // Build update object dynamically
     const dataToUpdate: Partial<{
@@ -92,6 +97,16 @@ export const updateBrandingController = async (req: Request, res: Response) => {
       dataToUpdate.banner = response.secure_url;
     }
 
+    if (mainSectionFile) {
+      const response = await cloudinary.uploader.upload(
+        mainSectionFile.filepath,
+        {
+          folder: "branding",
+        }
+      );
+      dataToUpdate.mainSection = response.secure_url;
+    }
+
     // Text fields
     if (formData.name) dataToUpdate.name = formData.name[0];
     if (formData.email) dataToUpdate.email = formData.email[0];
@@ -99,8 +114,8 @@ export const updateBrandingController = async (req: Request, res: Response) => {
       dataToUpdate.phoneNumber = formData.phoneNumber[0];
     if (formData.instagram) dataToUpdate.instagram = formData.instagram[0];
     if (formData.facebook) dataToUpdate.facebook = formData.facebook[0];
-    if (formData.mainSection)
-      dataToUpdate.mainSection = formData.mainSection[0];
+    // if (formData.mainSection)
+    //   dataToUpdate.mainSection = formData.mainSection[0];
 
     if (Object.keys(dataToUpdate).length === 0) {
       return res
