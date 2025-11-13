@@ -6,6 +6,7 @@ import {
   insertController,
   updateController,
   getCategoriesWithProducts,
+  insertBulkController,
 } from "@/controllers/product.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
 import { checkPermission } from "@/middlewares/checkpermission.middleware";
@@ -25,6 +26,9 @@ productRoutes.post(
   checkPermission("delete product"),
   deleteController
 );
+
+productRoutes.post("/add-bulk-product", protectRoute, insertBulkController);
+
 productRoutes.patch(
   "/products-update/:id",
   protectRoute,

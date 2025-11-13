@@ -137,6 +137,7 @@ export const products = pgTable("products", {
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "set null",
   }),
+  tax: integer("tax"),
   status: varchar("status", { enum: ["publish", "pending"] }).default(
     "publish"
   ),
@@ -402,6 +403,7 @@ export const branch = pgTable("branch", {
   }).notNull(), //separate city table
   // state: varchar("state"),
   areas: json("areas").$type<string[]>(),
+  deliveryRate: integer("delivery_rate").default(5).notNull(),
   // status: varchar("status", {
   //   enum: ["open", "closed"],
   // }).default("open"),
@@ -494,6 +496,7 @@ export const productInsertSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
   availability: z.coerce.boolean().optional(),
+  tax: z.number(),
   discount: z.coerce.number().min(0, "Discount cannot be negative").optional(),
   addonItemIds: z.array(z.string()).optional(),
 });

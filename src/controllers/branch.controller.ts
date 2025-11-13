@@ -54,6 +54,7 @@ export const addBranchController = async (req: Request, res: Response) => {
         phoneNumber?: string;
         areas?: string[];
         email?: string;
+        deliveryRate: number;
       };
 
     const newBranch = await database.transaction(async (tx) => {

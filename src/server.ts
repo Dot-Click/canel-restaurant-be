@@ -55,7 +55,7 @@ app.use((req, _res, next) => {
   console.log(
     `[INCOMING REQUEST]: Method: ${req.method}, URL: ${req.originalUrl}`
   );
-  next(); // Pass the request to the next middleware
+  next();
 });
 
 const io = new Server(httpServer, {
