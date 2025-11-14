@@ -4,6 +4,8 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import { addonInsertSchema, addon, addonUpdateSchema } from "@/schema/schema";
 import { eq } from "drizzle-orm";
+import ExcelJS from "exceljs";
+import formidable from "formidable";
 
 interface Item {
   id: string;
@@ -238,5 +240,62 @@ export const updateAddonCategoryController = async (
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "An internal server error occurred." });
+  }
+};
+
+export const insertBulkAddonCategoriesController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const form = formidable({ multiples: false });
+    const [_fields, files] = await form.parse(req);
+
+    const file = files.file?.[0];
+    if (!file) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Archivo no encontrado." });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.filepath);
+    const sheet = workbook.worksheets[0];
+
+    const categoriesToInsert: any[] = [];
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const categoryName = row.getCell(1).value;
+
+      if (categoryName) {
+        categoriesToInsert.push({
+          name: categoryName,
+        });
+      }
+    });
+
+    if (categoriesToInsert.length === 0) {
+      return res.status(status.BAD_REQUEST).json({
+        message:
+          "El archivo no contiene categorías de complementos para agregar.",
+      });
+    }
+
+    const inserted = await database
+      .insert(addon)
+      .values(categoriesToInsert)
+      .returning();
+
+    res.json({
+      message: "Categorías de complementos cargadas exitosamente.",
+      data: inserted,
+    });
+  } catch (err: any) {
+    console.error(err);
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "Ocurrió un error al procesar el archivo." });
   }
 };

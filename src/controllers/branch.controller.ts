@@ -22,6 +22,7 @@ const apiBranchAddPayloadSchema = branchInsertSchema
 const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
   areas: z.array(z.string()).optional(),
   email: z.string().email("Invalid email format.").optional(),
+  orderType: z.enum(["both", "pickup", "delivery"]).optional(),
   name: z.string().optional(),
   address: z.string().optional(),
   phoneNumber: z.string().optional(),
@@ -55,6 +56,7 @@ export const addBranchController = async (req: Request, res: Response) => {
         areas?: string[];
         email?: string;
         deliveryRate: number;
+        orderType: "both" | "pickup" | "delivery";
       };
 
     const newBranch = await database.transaction(async (tx) => {

@@ -12,6 +12,7 @@ import formidable from "formidable";
 import status from "http-status";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
+import ExcelJS from "exceljs";
 
 interface FormData {
   name: string;
@@ -253,5 +254,116 @@ export const updateAddonItemController = async (
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: "An internal server error occurred." });
+  }
+};
+
+export const insertBulkAddonItemController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    // --- STEP 1: PARSE THE FILE (No changes here) ---
+    const form = formidable({ multiples: false, maxFields: 20000 });
+    const [_fields, files] = await form.parse(req);
+    const file = files.file?.[0];
+    if (!file) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Archivo no encontrado." });
+    }
+
+    // --- STEP 2: READ THE EXCEL WORKBOOK & IMAGES ---
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.filepath);
+    const sheet = workbook.worksheets[0];
+    const sheetImages = sheet.getImages(); // <-- Added: Get image information
+
+    const rows: any[] = [];
+    const images: any[] = [];
+
+    // --- STEP 3: EXTRACT TEXT DATA FROM ROWS ---
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header
+
+      const itemName = row.getCell(1).value;
+      const itemDescription = row.getCell(2).value;
+      const addonCategoryId = row.getCell(3).value;
+      const itemPrice = row.getCell(4).value;
+
+      if (itemName && itemPrice && addonCategoryId) {
+        rows.push({
+          name: itemName,
+          description: itemDescription,
+          price: Number(itemPrice),
+          addon_id: addonCategoryId,
+          _rowNumber: rowNumber,
+        });
+      }
+    });
+
+    const workbookImages = workbook.model.media;
+
+    sheetImages.forEach((imgObj, index) => {
+      const media = workbookImages[index];
+      images.push({
+        row: imgObj.range.tl.nativeRow + 1,
+        base64: `data:image/${media.extension};base64,${Buffer.from(
+          media.buffer
+        ).toString("base64")}`,
+      });
+    });
+
+    const formattedItems = await Promise.all(
+      rows.map(async (item) => {
+        let imageURL = "";
+        const matchedImage = images.find((img) => img.row === item._rowNumber);
+
+        if (matchedImage) {
+          const upload = await cloudinary.uploader.upload(matchedImage.base64, {
+            folder: "addon_items", // Optional: organize in Cloudinary
+          });
+          imageURL = upload.secure_url;
+        }
+
+        // Return the final object for the database
+        return {
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          addonId: item.addon_id,
+          image: imageURL || null,
+        };
+      })
+    );
+
+    if (formattedItems.length === 0) {
+      return res.status(status.BAD_REQUEST).json({
+        message: "El archivo no contiene complementos válidos para agregar.",
+      });
+    }
+
+    console.log(formattedItems);
+
+    // --- STEP 6: INSERT FINAL DATA INTO DATABASE ---
+    const inserted = await database
+      .insert(addonItem)
+      .values(formattedItems)
+      .returning();
+
+    res.json({
+      message: "Complementos cargados exitosamente.",
+      data: inserted,
+    });
+  } catch (err: any) {
+    console.error(err);
+    if (err.code === "23503") {
+      return res.status(status.BAD_REQUEST).json({
+        message:
+          "Error: Una o más 'ID de Categoría del Complemento' no existen. Verifique el archivo.",
+      });
+    }
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "Ocurrió un error al procesar el archivo." });
   }
 };

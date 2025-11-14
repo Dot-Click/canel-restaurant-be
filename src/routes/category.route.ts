@@ -1,6 +1,7 @@
 import {
   deleteController,
   fetchController,
+  insertBulkCategoriesController,
   insertController,
   updateController,
 } from "@/controllers/category.controller";
@@ -28,6 +29,8 @@ categoryRoutes.patch(
   checkPermission("update category"),
   updateController
 );
+
+categoryRoutes.post("/add-bulk-category", insertBulkCategoriesController);
 
 categoryRoutes.get("/fetch-category", fetchController);
 

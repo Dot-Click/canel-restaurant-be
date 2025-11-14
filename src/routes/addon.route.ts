@@ -4,6 +4,7 @@ import {
   fetchController,
   getAddonsWithItemsController,
   updateAddonCategoryController,
+  insertBulkAddonCategoriesController,
 } from "@/controllers/addon.controller";
 import { protectRoute } from "@/middlewares/auth.middleware";
 import { checkPermission } from "@/middlewares/checkpermission.middleware";
@@ -31,5 +32,11 @@ addonRoutes.patch(
 );
 addonRoutes.get("/fetch-addon", fetchController);
 addonRoutes.get("/fetch-grouped-addons", getAddonsWithItemsController);
+
+addonRoutes.post(
+  "/add-bulk",
+  protectRoute,
+  insertBulkAddonCategoriesController
+);
 
 export { addonRoutes };

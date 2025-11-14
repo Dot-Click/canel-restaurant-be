@@ -8,6 +8,8 @@ import {
   categoryUpdateSchema,
 } from "@/schema/schema";
 import { eq } from "drizzle-orm";
+import ExcelJS from "exceljs";
+import formidable from "formidable";
 
 export const insertController = async (req: Request, res: Response) => {
   try {
@@ -154,5 +156,70 @@ export const updateController = async (req: Request, res: Response) => {
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
+  }
+};
+
+export const insertBulkCategoriesController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    // STEP 1: Parse the incoming file from the form data
+    const form = formidable({ multiples: false });
+    const [_fields, files] = await form.parse(req);
+
+    const file = files.file?.[0];
+    if (!file) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Archivo no encontrado." });
+    }
+
+    // STEP 2: Read the data from the Excel spreadsheet
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.filepath);
+    const sheet = workbook.worksheets[0];
+
+    const categoriesToInsert: any[] = [];
+
+    // STEP 3: Iterate over each row and extract category data
+    sheet.eachRow((row, rowNumber) => {
+      // Skip the header row (row 1)
+      if (rowNumber === 1) return;
+
+      const categoryName = row.getCell(1).value;
+      const categoryDescription = row.getCell(2).value;
+
+      // Basic validation: ensure the category has a name
+      if (categoryName) {
+        categoriesToInsert.push({
+          // Ensure these keys ('name', 'description') match your database schema columns
+          name: categoryName,
+          description: categoryDescription || null, // Use null if description is empty
+        });
+      }
+    });
+
+    if (categoriesToInsert.length === 0) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "El archivo no contiene categorías para agregar." });
+    }
+
+    // STEP 4: Insert the collected data into the database in a single transaction
+    const inserted = await database
+      .insert(category)
+      .values(categoriesToInsert)
+      .returning();
+
+    res.json({
+      message: "Categorías cargadas exitosamente.",
+      data: inserted,
+    });
+  } catch (err: any) {
+    console.error(err); // Log the error for debugging
+    res
+      .status(status.INTERNAL_SERVER_ERROR)
+      .json({ message: "Ocurrió un error al procesar el archivo." });
   }
 };

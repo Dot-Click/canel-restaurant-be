@@ -404,6 +404,9 @@ export const branch = pgTable("branch", {
   // state: varchar("state"),
   areas: json("areas").$type<string[]>(),
   deliveryRate: integer("delivery_rate").default(5).notNull(),
+  orderType: varchar("order_type", {
+    enum: ["both", "pickup", "delivery"],
+  }).default("both"),
   // status: varchar("status", {
   //   enum: ["open", "closed"],
   // }).default("open"),

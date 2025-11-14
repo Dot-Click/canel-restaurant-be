@@ -12,8 +12,9 @@ import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
 import { eq, or, isNull, ilike } from "drizzle-orm";
-import * as XLSX from "xlsx";
-import fs from "fs";
+// import * as XLSX from "xlsx";
+// import fs from "fs";
+import ExcelJS from "exceljs";
 
 interface FormData {
   name: string;
@@ -89,7 +90,6 @@ export const insertController = async (req: Request, res: Response) => {
         categoryId: data.categoryId,
         discount: data.discount,
         availability: data.availability,
-        // This is the key addition:
         addonItemIds: data.addonItemIds || [], // Use validated data, default to empty array
       })
       .returning();
@@ -249,76 +249,89 @@ export const fetchController = async (req: Request, res: Response) => {
 
 export const insertBulkController = async (req: Request, res: Response) => {
   try {
-    const form = formidable({ multiples: false });
-
+    const form = formidable({ multiples: false, maxFields: 20000 });
     const [_fields, files] = await form.parse(req);
+
     const file = files.file?.[0];
+    if (!file)
+      return res.status(status.BAD_REQUEST).json({ message: "File missing" });
 
-    if (!file) {
-      return res
-        .status(status.UNPROCESSABLE_ENTITY)
-        .json({ message: "No file uploaded" });
-    }
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.filepath);
 
-    // STEP 2: Parse the CSV/XLSX
-    const workbook = XLSX.readFile(file.filepath);
-    const sheetName = workbook.SheetNames[0];
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    const sheet = workbook.worksheets[0];
+    const sheetImages = sheet.getImages();
 
-    if (!rows || rows.length === 0) {
-      return res
-        .status(status.BAD_REQUEST)
-        .json({ message: "No data found in the uploaded file" });
-    }
+    // MOVED DECLARATIONS HERE
+    const rows: any[] = [];
+    const images: any[] = [];
 
-    // STEP 3: Process and upload each image
-    const formattedProducts = await Promise.all(
-      rows.map(async (row: any) => {
-        let imageUrl = row.image;
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
 
-        if (imageUrl && !imageUrl.startsWith("http")) {
-          try {
-            const uploadRes = await cloudinary.uploader.upload(imageUrl, {
-              folder: "products",
-            });
-            imageUrl = uploadRes.secure_url;
-          } catch (err) {
-            logger.error("Image upload failed:", err);
-          }
+      rows.push({
+        name: row.getCell(1).value,
+        description: row.getCell(2).value,
+        price: row.getCell(4).value,
+        categoryId: row.getCell(3).value,
+        _rowNumber: rowNumber,
+      });
+    });
+
+    const workbookImages = workbook.model.media;
+
+    sheetImages.forEach((imgObj, index) => {
+      const media = workbookImages[index];
+
+      // Now 'images' is accessible
+      images.push({
+        row: imgObj.range.tl.nativeRow + 1,
+        col: imgObj.range.tl.nativeCol + 1,
+        base64: `data:image/${media.extension};base64,${Buffer.from(
+          media.buffer
+        ).toString("base64")}`,
+      });
+    });
+
+    // STEP 3: Match each image to the correct product row
+    rows.forEach((row) => {
+      const matched = images.find((img) => img.row === row._rowNumber);
+      row.image = matched ? matched.base64 : null;
+    });
+
+    // STEP 4: Upload images to Cloudinary
+    const formatted = await Promise.all(
+      rows.map(async (p) => {
+        let imgURL = "";
+
+        if (p.image) {
+          const upload = await cloudinary.uploader.upload(p.image, {
+            folder: "products",
+          });
+          imgURL = upload.secure_url;
         }
 
         return {
-          name: row.name,
-          description: row.description,
-          price: String(row.price),
-          categoryId: row.categoryId,
-          image: imageUrl,
-          availability:
-            typeof row.availability === "string"
-              ? row.availability.toLowerCase() === "true"
-              : !!row.availability,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          categoryId: p.categoryId,
+          image: imgURL,
+          availability: true,
         };
       })
     );
 
-    // STEP 4: Insert into database
+    // Save to DB
     const inserted = await database
       .insert(products)
-      .values(formattedProducts)
+      .values(formatted)
       .returning();
 
-    // STEP 5: Clean up local file
-    fs.unlinkSync(file.filepath);
-
-    res.status(status.OK).json({
-      message: "Products uploaded successfully",
-      data: inserted,
-    });
-  } catch (error) {
-    logger.error(error);
-    res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
+    res.json({ message: "Products uploaded", data: inserted });
+  } catch (err: any) {
+    console.log(err);
+    res.status(status.INTERNAL_SERVER_ERROR).json({ message: err.message });
   }
 };
 

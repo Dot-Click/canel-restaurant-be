@@ -3,6 +3,7 @@ import {
   createAddonItem,
   deleteAddonItem,
   fetchAddonItem,
+  insertBulkAddonItemController,
   updateAddonItemController,
 } from "@/controllers/addonitem.controller";
 import { checkPermission } from "@/middlewares/checkpermission.middleware";
@@ -31,5 +32,7 @@ addonItemsRoutes.patch(
 );
 
 addonItemsRoutes.get("/fetch-addonitem", fetchAddonItem);
+
+addonItemsRoutes.post("/add-bulk", protectRoute, insertBulkAddonItemController);
 
 export { addonItemsRoutes };
