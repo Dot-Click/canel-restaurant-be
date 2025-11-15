@@ -1,18 +1,21 @@
 import { database } from "@/configs/connection.config";
 import {
+  addon,
   addonItem,
   addonItemInsertSchema,
   addonItemUpdateSchema,
   // type AddonItem,
 } from "@/schema/schema";
 import { logger } from "@/utils/logger.util";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Request, Response } from "express";
 import formidable from "formidable";
 import status from "http-status";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
-import ExcelJS from "exceljs";
+// import ExcelJS from "exceljs";
+import fs from "fs";
+import Papa from "papaparse";
 
 interface FormData {
   name: string;
@@ -262,76 +265,84 @@ export const insertBulkAddonItemController = async (
   res: Response
 ) => {
   try {
-    // --- STEP 1: PARSE THE FILE (No changes here) ---
+    // --- STEP 1: PARSE THE FILE ---
     const form = formidable({ multiples: false, maxFields: 20000 });
     const [_fields, files] = await form.parse(req);
     const file = files.file?.[0];
     if (!file) {
-      return res
-        .status(status.BAD_REQUEST)
-        .json({ message: "Archivo no encontrado." });
+      return res.status(400).json({ message: "Archivo no encontrado." });
     }
 
-    // --- STEP 2: READ THE EXCEL WORKBOOK & IMAGES ---
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(file.filepath);
-    const sheet = workbook.worksheets[0];
-    const sheetImages = sheet.getImages(); // <-- Added: Get image information
-
-    const rows: any[] = [];
-    const images: any[] = [];
-
-    // --- STEP 3: EXTRACT TEXT DATA FROM ROWS ---
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
-
-      const itemName = row.getCell(1).value;
-      const itemDescription = row.getCell(2).value;
-      const addonCategoryId = row.getCell(3).value;
-      const itemPrice = row.getCell(4).value;
-
-      if (itemName && itemPrice && addonCategoryId) {
-        rows.push({
-          name: itemName,
-          description: itemDescription,
-          price: Number(itemPrice),
-          addon_id: addonCategoryId,
-          _rowNumber: rowNumber,
-        });
-      }
+    const csvContent = fs.readFileSync(file.filepath, "utf-8");
+    const parsed = Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
     });
+    const rows = parsed.data as any[];
 
-    const workbookImages = workbook.model.media;
+    if (!rows.length) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "El CSV está vacío" });
+    }
 
-    sheetImages.forEach((imgObj, index) => {
-      const media = workbookImages[index];
-      images.push({
-        row: imgObj.range.tl.nativeRow + 1,
-        base64: `data:image/${media.extension};base64,${Buffer.from(
-          media.buffer
-        ).toString("base64")}`,
-      });
-    });
-
+    // --- STEP 2: Process each row ---
     const formattedItems = await Promise.all(
-      rows.map(async (item) => {
-        let imageURL = "";
-        const matchedImage = images.find((img) => img.row === item._rowNumber);
+      rows.map(async (row, index) => {
+        const name = (row["Nombre"] || "").trim();
+        const description = (row["Descripción"] || "").trim();
+        const addonCategoryRaw = (
+          row["Categoría"] ||
+          row["Categorías"] ||
+          ""
+        ).trim();
+        const price = row["Precio"] || "0";
+        const imageUrl = (row["Imágenes"] || row["Imagen"] || "").trim();
 
-        if (matchedImage) {
-          const upload = await cloudinary.uploader.upload(matchedImage.base64, {
-            folder: "addon_items", // Optional: organize in Cloudinary
-          });
-          imageURL = upload.secure_url;
+        if (!name || !price || !addonCategoryRaw) {
+          throw new Error(
+            `Fila ${index + 2} tiene campos obligatorios vacíos.`
+          );
         }
 
-        // Return the final object for the database
+        if (!addonCategoryRaw) {
+          throw new Error(`La categoría está vacía en la fila ${index + 2}`);
+        }
+
+        const addonCategoryName = addonCategoryRaw.toLowerCase();
+
+        // Lookup addon category case-insensitively
+        const [existingCategory] = await database
+          .select()
+          .from(addon)
+          .where(sql`LOWER(${addon.name}) = ${addonCategoryName}`);
+
+        if (!existingCategory) {
+          throw new Error(
+            `La categoría '${addonCategoryName}' no existe en la fila ${
+              index + 2
+            }`
+          );
+        }
+
+        let finalImage = "";
+        if (imageUrl) {
+          if (!imageUrl.startsWith("http")) {
+            const upload = await cloudinary.uploader.upload(imageUrl, {
+              folder: "addon_items",
+            });
+            finalImage = upload.secure_url;
+          } else {
+            finalImage = imageUrl;
+          }
+        }
+
         return {
-          name: item.name,
-          description: item.description,
-          price: item.price,
-          addonId: item.addon_id,
-          image: imageURL || null,
+          name,
+          description,
+          price,
+          addonId: existingCategory.id,
+          image: finalImage || null,
         };
       })
     );
@@ -342,9 +353,6 @@ export const insertBulkAddonItemController = async (
       });
     }
 
-    console.log(formattedItems);
-
-    // --- STEP 6: INSERT FINAL DATA INTO DATABASE ---
     const inserted = await database
       .insert(addonItem)
       .values(formattedItems)
@@ -356,14 +364,8 @@ export const insertBulkAddonItemController = async (
     });
   } catch (err: any) {
     console.error(err);
-    if (err.code === "23503") {
-      return res.status(status.BAD_REQUEST).json({
-        message:
-          "Error: Una o más 'ID de Categoría del Complemento' no existen. Verifique el archivo.",
-      });
-    }
-    res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: "Ocurrió un error al procesar el archivo." });
+    res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: err.message || "Ocurrió un error al procesar el archivo.",
+    });
   }
 };

@@ -8,8 +8,9 @@ import {
   categoryUpdateSchema,
 } from "@/schema/schema";
 import { eq } from "drizzle-orm";
-import ExcelJS from "exceljs";
 import formidable from "formidable";
+import fs from "fs";
+import Papa from "papaparse";
 
 export const insertController = async (req: Request, res: Response) => {
   try {
@@ -164,7 +165,6 @@ export const insertBulkCategoriesController = async (
   res: Response
 ) => {
   try {
-    // STEP 1: Parse the incoming file from the form data
     const form = formidable({ multiples: false });
     const [_fields, files] = await form.parse(req);
 
@@ -175,38 +175,37 @@ export const insertBulkCategoriesController = async (
         .json({ message: "Archivo no encontrado." });
     }
 
-    // STEP 2: Read the data from the Excel spreadsheet
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(file.filepath);
-    const sheet = workbook.worksheets[0];
+    const csvContent = fs.readFileSync(file.filepath, "utf-8");
 
-    const categoriesToInsert: any[] = [];
-
-    // STEP 3: Iterate over each row and extract category data
-    sheet.eachRow((row, rowNumber) => {
-      // Skip the header row (row 1)
-      if (rowNumber === 1) return;
-
-      const categoryName = row.getCell(1).value;
-      const categoryDescription = row.getCell(2).value;
-
-      // Basic validation: ensure the category has a name
-      if (categoryName) {
-        categoriesToInsert.push({
-          // Ensure these keys ('name', 'description') match your database schema columns
-          name: categoryName,
-          description: categoryDescription || null, // Use null if description is empty
-        });
-      }
+    // STEP 2: Parse CSV
+    const parsed = Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
     });
 
-    if (categoriesToInsert.length === 0) {
+    const rows = parsed.data as any[];
+
+    if (!rows.length) {
       return res
         .status(status.BAD_REQUEST)
-        .json({ message: "El archivo no contiene categorías para agregar." });
+        .json({ message: "El CSV está vacío." });
     }
 
-    // STEP 4: Insert the collected data into the database in a single transaction
+    // STEP 3: Map CSV rows to DB format
+    const categoriesToInsert = rows.map((row, index) => {
+      const name = (row["Nombre"] || row["Nombre de categoría"] || "").trim();
+      const description = (row["Descripción"] || "").trim() || null;
+
+      if (!name) {
+        throw new Error(
+          `Fila ${index + 2} no tiene un nombre de categoría válido.`
+        );
+      }
+
+      return { name, description };
+    });
+
+    // STEP 4: Insert into DB
     const inserted = await database
       .insert(category)
       .values(categoriesToInsert)
@@ -217,9 +216,11 @@ export const insertBulkCategoriesController = async (
       data: inserted,
     });
   } catch (err: any) {
-    console.error(err); // Log the error for debugging
+    console.error(err);
     res
       .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: "Ocurrió un error al procesar el archivo." });
+      .json({
+        message: err.message || "Ocurrió un error al procesar el archivo.",
+      });
   }
 };

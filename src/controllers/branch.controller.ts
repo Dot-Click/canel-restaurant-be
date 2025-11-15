@@ -17,6 +17,7 @@ const apiBranchAddPayloadSchema = branchInsertSchema
     cityName: z.string({ required_error: "City name is required." }).min(1),
     areas: z.array(z.string()).optional(),
     email: z.string().email("Invalid email format.").optional(),
+    orderType: z.enum(["both", "pickup", "delivery"]).optional(),
   });
 
 const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
@@ -36,7 +37,7 @@ const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
 export const addBranchController = async (req: Request, res: Response) => {
   try {
     const validation = apiBranchAddPayloadSchema.safeParse(req.body);
-
+    console.log(req.body);
     if (!validation.success) {
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
@@ -86,7 +87,7 @@ export const addBranchController = async (req: Request, res: Response) => {
       if (openingTime && closingTime) {
         const scheduleData = Array.from({ length: 7 }, (_, i) => ({
           branchId: insertedBranch.id,
-          dayOfWeek: i, // 0=Sunday, 6=Saturday
+          dayOfWeek: i,
           openTime: openingTime,
           closeTime: closingTime,
           isActive: true,
@@ -160,7 +161,7 @@ export const fetchSingleBranchController = async (
     if (!singleBranch) {
       return res.status(status.NOT_FOUND).json({ message: "Branch not found" });
     }
-
+    console.log(singleBranch);
     return res
       .status(status.OK)
       .json({ message: "Branch fetched successfully", data: singleBranch });
@@ -177,8 +178,6 @@ export const updateBranchController = async (req: Request, res: Response) => {
     const { id } = req.params;
     const validation = apiBranchUpdatePayloadSchema.safeParse(req.body);
 
-    console.log("THis is req.boyd", req.body);
-
     if (!validation.success) {
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
@@ -191,13 +190,14 @@ export const updateBranchController = async (req: Request, res: Response) => {
         .status(status.BAD_REQUEST)
         .json({ message: "No fields to update provided." });
     }
-    console.log("This is validation data", validation.data);
+
     const [updatedBranch] = await database
       .update(branch)
       .set(validation.data)
       .where(eq(branch.id, id))
       .returning();
 
+    console.log(updatedBranch);
     if (!updatedBranch) {
       return res.status(status.NOT_FOUND).json({ message: "Branch not found" });
     }

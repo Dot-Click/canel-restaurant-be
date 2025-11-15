@@ -11,10 +11,12 @@ import {
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
-import { eq, or, isNull, ilike } from "drizzle-orm";
+import { eq, or, isNull, ilike, sql } from "drizzle-orm";
 // import * as XLSX from "xlsx";
-// import fs from "fs";
-import ExcelJS from "exceljs";
+
+// import ExcelJS from "exceljs";
+import fs from "fs";
+import Papa from "papaparse";
 
 interface FormData {
   name: string;
@@ -247,91 +249,94 @@ export const fetchController = async (req: Request, res: Response) => {
   }
 };
 
-export const insertBulkController = async (req: Request, res: Response) => {
+export const insertBulkController = async (req: any, res: any) => {
   try {
     const form = formidable({ multiples: false, maxFields: 20000 });
     const [_fields, files] = await form.parse(req);
 
     const file = files.file?.[0];
-    if (!file)
-      return res.status(status.BAD_REQUEST).json({ message: "File missing" });
+    if (!file) return res.status(400).json({ message: "Archivo faltante" });
 
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(file.filepath);
+    const csvContent = fs.readFileSync(file.filepath, "utf-8");
 
-    const sheet = workbook.worksheets[0];
-    const sheetImages = sheet.getImages();
-
-    // MOVED DECLARATIONS HERE
-    const rows: any[] = [];
-    const images: any[] = [];
-
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-
-      rows.push({
-        name: row.getCell(1).value,
-        description: row.getCell(2).value,
-        price: row.getCell(4).value,
-        categoryId: row.getCell(3).value,
-        _rowNumber: rowNumber,
-      });
+    const parsed = Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
     });
 
-    const workbookImages = workbook.model.media;
+    const rows = parsed.data as any[];
 
-    sheetImages.forEach((imgObj, index) => {
-      const media = workbookImages[index];
+    if (!rows.length) {
+      return res.status(400).json({ message: "El CSV está vacío" });
+    }
 
-      // Now 'images' is accessible
-      images.push({
-        row: imgObj.range.tl.nativeRow + 1,
-        col: imgObj.range.tl.nativeCol + 1,
-        base64: `data:image/${media.extension};base64,${Buffer.from(
-          media.buffer
-        ).toString("base64")}`,
-      });
-    });
-
-    // STEP 3: Match each image to the correct product row
-    rows.forEach((row) => {
-      const matched = images.find((img) => img.row === row._rowNumber);
-      row.image = matched ? matched.base64 : null;
-    });
-
-    // STEP 4: Upload images to Cloudinary
     const formatted = await Promise.all(
-      rows.map(async (p) => {
-        let imgURL = "";
+      rows.map(async (row, index) => {
+        console.log(row);
+        const name = (row["Nombre"] || "").trim();
+        const categoryRaw = (
+          row["Categoría"] ||
+          row["Categorías"] ||
+          ""
+        ).trim();
+        const price = row["Precio normal"] || "0";
+        const imageUrl = (row["Imágenes"] || row["Imagen"] || "").trim();
 
-        if (p.image) {
-          const upload = await cloudinary.uploader.upload(p.image, {
-            folder: "products",
-          });
-          imgURL = upload.secure_url;
+        if (!categoryRaw) {
+          throw new Error(`La categoría está vacía en la fila ${index + 2}`);
+        }
+
+        const categoryName = categoryRaw.toLowerCase();
+
+        console.log(categoryName);
+
+        // Lookup category case-insensitively
+        const [existingCategory] = await database
+          .select()
+          .from(category)
+          .where(sql`LOWER(${category.name}) = ${categoryName}`);
+
+        if (!existingCategory) {
+          throw new Error(
+            `La categoría '${categoryRaw}' no existe en la fila ${index + 2}`
+          );
+        }
+
+        const categoryId = existingCategory.id;
+
+        // Handle image
+        let imgURL = "";
+        if (imageUrl) {
+          if (!imageUrl.startsWith("http")) {
+            const upload = await cloudinary.uploader.upload(imageUrl, {
+              folder: "products",
+            });
+            imgURL = upload.secure_url;
+          } else {
+            imgURL = imageUrl;
+          }
         }
 
         return {
-          name: p.name,
-          description: p.description,
-          price: p.price,
-          categoryId: p.categoryId,
+          name,
+          description: "",
+          price,
+          categoryId,
           image: imgURL,
           availability: true,
         };
       })
     );
 
-    // Save to DB
     const inserted = await database
       .insert(products)
       .values(formatted)
       .returning();
 
-    res.json({ message: "Products uploaded", data: inserted });
+    res.json({ message: "Productos subidos correctamente", data: inserted });
   } catch (err: any) {
-    console.log(err);
-    res.status(status.INTERNAL_SERVER_ERROR).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 };
 

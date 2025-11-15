@@ -4,8 +4,9 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import { addonInsertSchema, addon, addonUpdateSchema } from "@/schema/schema";
 import { eq } from "drizzle-orm";
-import ExcelJS from "exceljs";
 import formidable from "formidable";
+import fs from "fs";
+import Papa from "papaparse";
 
 interface Item {
   id: string;
@@ -248,6 +249,7 @@ export const insertBulkAddonCategoriesController = async (
   res: Response
 ) => {
   try {
+    // STEP 1: Parse the file
     const form = formidable({ multiples: false });
     const [_fields, files] = await form.parse(req);
 
@@ -258,31 +260,42 @@ export const insertBulkAddonCategoriesController = async (
         .json({ message: "Archivo no encontrado." });
     }
 
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(file.filepath);
-    const sheet = workbook.worksheets[0];
+    const csvContent = fs.readFileSync(file.filepath, "utf-8");
 
-    const categoriesToInsert: any[] = [];
+    // STEP 2: Parse CSV
+    const parsed = Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+    });
+    const rows = parsed.data as any[];
 
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
+    if (!rows.length) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "El CSV está vacío." });
+    }
 
-      const categoryName = row.getCell(1).value;
+    // STEP 3: Map CSV rows to DB format
+    const categoriesToInsert = rows.map((row, index) => {
+      const name = (row["Nombre"] || row["Nombre de categoría"] || "").trim();
+      const description = (row["Descripción"] || "").trim() || null;
 
-      if (categoryName) {
-        categoriesToInsert.push({
-          name: categoryName,
-        });
+      if (!name) {
+        throw new Error(
+          `Fila ${index + 2} no tiene un nombre de categoría válido.`
+        );
       }
+
+      return { name, description };
     });
 
-    if (categoriesToInsert.length === 0) {
+    if (!categoriesToInsert.length) {
       return res.status(status.BAD_REQUEST).json({
-        message:
-          "El archivo no contiene categorías de complementos para agregar.",
+        message: "El archivo no contiene categorías de complementos válidas.",
       });
     }
 
+    // STEP 4: Insert into DB
     const inserted = await database
       .insert(addon)
       .values(categoriesToInsert)
@@ -294,8 +307,8 @@ export const insertBulkAddonCategoriesController = async (
     });
   } catch (err: any) {
     console.error(err);
-    res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: "Ocurrió un error al procesar el archivo." });
+    res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: err.message || "Ocurrió un error al procesar el archivo.",
+    });
   }
 };
