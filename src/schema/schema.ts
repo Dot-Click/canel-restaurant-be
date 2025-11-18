@@ -119,6 +119,12 @@ export const verification = pgTable("verification", {
 });
 
 // TODO Schema & Relations of Products
+
+export type ProductVariant = {
+  name: string;
+  price: number;
+};
+
 export const products = pgTable("products", {
   id: uuid().primaryKey(),
   name: varchar("product").notNull(),
@@ -141,6 +147,7 @@ export const products = pgTable("products", {
   status: varchar("status", { enum: ["publish", "pending"] }).default(
     "publish"
   ),
+  variants: json("variants").$type<ProductVariant[]>(),
   ...timeStamps,
 });
 
@@ -493,16 +500,24 @@ export const timeSlotRelations = relations(timeSlot, ({ one }) => ({
 // export const productInsertSchema = createInsertSchema(products);
 
 // Zod validation
+
+export const variantSchema = z.object({
+  name: z.string().min(1, "Variant name is required"),
+  price: z.coerce.number().positive("Variant price must be a positive number"),
+});
+
 export const productInsertSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),
   categoryId: z.string().min(1, "Category is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
   availability: z.coerce.boolean().optional(),
-  tax: z.number(),
+  tax: z.number().optional(),
   discount: z.coerce.number().min(0, "Discount cannot be negative").optional(),
   addonItemIds: z.array(z.string()).optional(),
+  variants: z.array(variantSchema).optional().default([]),
 });
+
 export const addonItemInsertSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),

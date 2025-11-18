@@ -35,6 +35,17 @@ export const insertController = async (req: Request, res: Response) => {
     const productImage = files.productImage?.[0];
 
     console.log(formData);
+    let variants = [];
+    if (formData.variants && formData.variants[0]) {
+      try {
+        variants = JSON.parse(formData.variants[0]);
+      } catch (e) {
+        return res.status(status.BAD_REQUEST).json({
+          message:
+            "Invalid variants format. Please provide a valid JSON array.",
+        });
+      }
+    }
 
     let addonItemIds: string[] = [];
 
@@ -50,6 +61,7 @@ export const insertController = async (req: Request, res: Response) => {
     const payloadToValidate = {
       ...otherFields,
       addonItemIds,
+      variants, // MODIFICATION: Add parsed variants to the payload
       availability: Array.isArray(otherFields.availability)
         ? otherFields.availability[0] === "true"
         : otherFields.availability === "true",
@@ -58,6 +70,7 @@ export const insertController = async (req: Request, res: Response) => {
     const { data, error } = productInsertSchema.safeParse(payloadToValidate);
 
     if (!data) {
+      console.log(error);
       logger.error("Validation failed", error);
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Please provide all nesscary data.",
@@ -80,19 +93,18 @@ export const insertController = async (req: Request, res: Response) => {
         .json({ message: "Problem with image" });
     }
 
-    // STEP 7: Insert the product into the database, INCLUDING addonItemIds
-    // We use the validated `data` from Zod.
     const insertedProduct = await database
       .insert(products)
       .values({
         name: data.name,
         description: data.description,
-        price: String(data.price), // Drizzle numeric often expects a string
+        price: String(data.price),
         image: cloudinaryResponse.secure_url,
         categoryId: data.categoryId,
         discount: data.discount,
         availability: data.availability,
-        addonItemIds: data.addonItemIds || [], // Use validated data, default to empty array
+        addonItemIds: data.addonItemIds || [],
+        variants: data.variants || [],
       })
       .returning();
 
