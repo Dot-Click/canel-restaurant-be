@@ -54,6 +54,8 @@ export const insertController = async (req: Request, res: Response) => {
       .where(eq(branch.id, branchId))
       .limit(1);
 
+    console.log("results", branchId);
+
     const selectedBranch = results[0];
     if (!selectedBranch) {
       return res
@@ -105,15 +107,20 @@ export const insertController = async (req: Request, res: Response) => {
         });
       }
 
+      // const variantPrice = item.variantPrice;
+      // const variantName = item.variantName;
+
       // Insert main order item
       const [insertedItem] = await database
         .insert(orderItems)
         .values({
           orderId: insertedOrder.id,
           productId: item.productId,
-          productName: item.product.name,
+          productName: item.variantName
+            ? `${item.product.name} - ${item.variantName}`
+            : item.product.name,
           quantity: item.quantity,
-          price: String(item.product.price),
+          price: String(item.variantPrice ?? item.product.price),
           instructions: item.instructions || "",
           discount: Number(item.product.discount) || 0,
         })

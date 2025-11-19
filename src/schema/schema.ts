@@ -315,6 +315,8 @@ export const cartItems = pgTable("cartItem", {
   }),
   quantity: integer("quantity").default(1).notNull(),
   instructions: varchar("instructions"),
+  variantName: varchar("variant_name"),
+  variantPrice: numeric("variant_price", { precision: 10, scale: 2 }),
 });
 
 export const cartrelation = relations(cart, ({ many }) => ({

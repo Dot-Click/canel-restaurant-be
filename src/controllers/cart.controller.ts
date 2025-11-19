@@ -8,7 +8,13 @@ import status from "http-status";
 export const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { productId, quantity = 1, notes } = req.body;
+    const {
+      productId,
+      quantity = 1,
+      notes,
+      variantName,
+      variantPrice,
+    } = req.body;
 
     if (!productId) {
       return res
@@ -16,11 +22,12 @@ export const addToCart = async (req: Request, res: Response) => {
         .json({ message: "Product Id is required" });
     }
 
-    // --- Find or Create Cart (Your existing logic is perfect) ---
     let cartId: string;
+
     const existingCart = await database.query.cart.findFirst({
       where: eq(cart.userId, userId),
     });
+
     if (existingCart) {
       cartId = existingCart.id;
     } else {
@@ -31,7 +38,6 @@ export const addToCart = async (req: Request, res: Response) => {
       cartId = newCart.id;
     }
 
-    // --- Check for product details first to get addon info ---
     const productDetails = await database.query.products.findFirst({
       where: eq(products.id, productId),
     });
@@ -42,11 +48,11 @@ export const addToCart = async (req: Request, res: Response) => {
         .json({ message: "Product not found." });
     }
 
-    // --- Add or Update Cart Item (Your existing logic is mostly fine) ---
     const existingItem = await database.query.cartItems.findFirst({
       where: and(
         eq(cartItems.cartId, cartId),
-        eq(cartItems.productId, productId)
+        eq(cartItems.productId, productId),
+        eq(cartItems.variantName, variantName ?? null)
       ),
     });
 
@@ -61,6 +67,7 @@ export const addToCart = async (req: Request, res: Response) => {
         })
         .where(eq(cartItems.id, existingItem.id))
         .returning();
+
       newCartItem = updatedItem;
     } else {
       const [insertedItem] = await database
@@ -70,13 +77,15 @@ export const addToCart = async (req: Request, res: Response) => {
           productId,
           quantity,
           instructions: notes,
+          variantName,
+          variantPrice,
         })
         .returning();
       newCartItem = insertedItem;
     }
 
-    // --- NEW LOGIC: Fetch available addons to return to the frontend ---
     let availableAddons: any[] = [];
+
     if (productDetails.addonItemIds && productDetails.addonItemIds.length > 0) {
       availableAddons = await database.query.addonItem.findMany({
         where: inArray(addonItem.id, productDetails.addonItemIds),
@@ -85,7 +94,6 @@ export const addToCart = async (req: Request, res: Response) => {
 
     return res.status(status.OK).json({
       message: "Item added to cart.",
-      // Return the cart item ID and addons so the frontend knows what to do next
       cartItemId: newCartItem.id,
       availableAddons: availableAddons,
     });
