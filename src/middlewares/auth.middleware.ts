@@ -85,7 +85,7 @@ export const protectRoute = async (
     if (!session || !session.user) {
       return res.status(401).json({
         error: "UNAUTHORIZED",
-        message: "You must be logged in to access this resource.",
+        message: "Debes iniciar sesión para acceder a este recurso.",
       });
     }
 

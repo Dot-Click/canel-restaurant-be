@@ -20,97 +20,117 @@ import { endOfWeek, startOfWeek } from "date-fns";
 import crypto from "crypto";
 
 export const insertController = async (req: Request, res: Response) => {
-  const { cartId, branchId, ...formData } = req.body;
   const userId = req.user!.id;
 
-  if (!cartId || !branchId) {
-    return res
-      .status(status.BAD_REQUEST)
-      .json({ message: "Cart ID and Branch ID are required." });
-  }
-
   try {
-    // 1. Check for global pause
+    const form = formidable({ multiples: true });
+    const [formData, files] = await form.parse<any, "paymentSS" | "itemImages">(
+      req
+    );
+
+    // --- handle cartId and branchId as strings ---
+    const cartId: string | undefined = Array.isArray(formData.cartId)
+      ? formData.cartId[0]
+      : formData.cartId;
+
+    const branchId: string | undefined = Array.isArray(formData.branchId)
+      ? formData.branchId[0]
+      : formData.branchId;
+
+    if (!cartId || !branchId) {
+      return res
+        .status(status.BAD_REQUEST)
+        .json({ message: "Cart ID and Branch ID are required." });
+    }
+
+    // --- clean rest of form data ---
+    const cleanedForm: Record<string, any> = {};
+    for (const key in formData) {
+      if (key !== "cartId" && key !== "branchId") {
+        cleanedForm[key] = Array.isArray(formData[key])
+          ? formData[key][0]
+          : formData[key];
+      }
+    }
+
+    // --- global/branch pause checks ---
     const [globalSetting] = await database
       .select()
       .from(globalOrderStatus)
       .limit(1);
-
     if (globalSetting?.isPaused) {
-      return res.status(status.FORBIDDEN).json({
-        message:
-          globalSetting.reason ||
-          "Ordering is temporarily paused. Please try again later.",
-      });
+      return res
+        .status(403)
+        .json({ message: globalSetting.reason || "Ordering paused." });
     }
 
-    // 2. Check for branch pause
-    const results = await database
-      .select({
-        isPaused: branch.isPaused,
-        pauseReason: branch.pauseReason,
-      })
+    const [selectedBranch] = await database
+      .select({ isPaused: branch.isPaused, pauseReason: branch.pauseReason })
       .from(branch)
       .where(eq(branch.id, branchId))
       .limit(1);
 
-    console.log("results", branchId);
-
-    const selectedBranch = results[0];
-    if (!selectedBranch) {
+    if (!selectedBranch)
+      return res.status(404).json({ message: "Branch not found." });
+    if (selectedBranch.isPaused)
       return res
-        .status(status.NOT_FOUND)
-        .json({ message: "Branch not found." });
-    }
-    if (selectedBranch.isPaused) {
-      return res.status(status.FORBIDDEN).json({
-        message:
-          selectedBranch.pauseReason ||
-          "This branch is not accepting orders right now.",
-      });
-    }
+        .status(403)
+        .json({ message: selectedBranch.pauseReason || "Branch paused." });
 
-    // 3. Fetch cart items with addons
+    // --- fetch cart items ---
     const itemsInCart = await database.query.cartItems.findMany({
       where: eq(cartItems.cartId, cartId),
-      with: {
-        product: true,
-        selectedAddons: {
-          with: {
-            addonItem: true,
-          },
-        },
-      },
+      with: { product: true, selectedAddons: { with: { addonItem: true } } },
     });
 
-    if (itemsInCart.length === 0) {
+    if (!itemsInCart.length) {
       return res
-        .status(status.BAD_REQUEST)
-        .json({ message: "Cannot place an order with an empty cart." });
+        .status(400)
+        .json({ message: "Cannot place order with empty cart." });
     }
 
-    // 4. Create order
+    // --- upload main order image ---
+    let deliveryImageUrl: string | undefined;
+    if (files.paymentSS) {
+      const fileToUpload = Array.isArray(files.paymentSS)
+        ? files.paymentSS[0]
+        : files.paymentSS;
+      const cloudResp = await cloudinary.uploader.upload(
+        fileToUpload.filepath,
+        { folder: "orders" }
+      );
+      deliveryImageUrl = cloudResp.secure_url;
+    }
+
+    // --- create order ---
     const [insertedOrder] = await database
       .insert(orders)
       .values({
-        ...formData, // name, phoneNumber, location, type, etc.
+        ...cleanedForm,
         userId,
         branchId,
-      })
+        onlinePaymentProveImage: deliveryImageUrl,
+      } as any)
       .returning();
 
-    // 5. Insert order items + addons
+    // --- insert order items ---
     for (const item of itemsInCart) {
-      if (!item.product) {
-        return res.status(status.BAD_REQUEST).json({
-          message: `Product with ID ${item.productId} not found. Order cannot be placed.`,
-        });
-      }
+      if (!item.product) continue;
 
-      // const variantPrice = item.variantPrice;
-      // const variantName = item.variantName;
+      // item image upload (if exists)
+      // let itemImageUrl: string | undefined;
+      // const itemImage = files.itemImages
+      //   ? Array.isArray(files.itemImages)
+      //     ? files.itemImages[0]
+      //     : files.itemImages
+      //   : undefined;
+      // if (itemImage) {
+      //   const cloudResp = await cloudinary.uploader.upload(itemImage.filepath, {
+      //     folder: "orders/items",
+      //   });
+      //   itemImageUrl = cloudResp.secure_url;
+      // }
 
-      // Insert main order item
       const [insertedItem] = await database
         .insert(orderItems)
         .values({
@@ -123,34 +143,30 @@ export const insertController = async (req: Request, res: Response) => {
           price: String(item.variantPrice ?? item.product.price),
           instructions: item.instructions || "",
           discount: Number(item.product.discount) || 0,
-        })
+        } as any)
         .returning();
 
-      // Insert addons if any
-      if (item.selectedAddons?.length > 0) {
+      // --- insert addons ---
+      if (item.selectedAddons?.length) {
         const addonsToInsert = item.selectedAddons.map((addon) => ({
-          orderItemId: insertedItem.id, // ✅ correct relation
+          orderItemId: insertedItem.id,
           addonItemId: addon.addonItemId,
           quantity: addon.quantity,
           price: String(addon.addonItem?.price ?? 0),
         }));
-
         await database.insert(orderAddons).values(addonsToInsert);
       }
     }
 
-    // 6. Clear cart
+    // --- clear cart ---
     await database.delete(cartItems).where(eq(cartItems.cartId, cartId));
 
-    return res.status(status.CREATED).json({
-      message: "Order placed successfully!",
-      data: insertedOrder,
-    });
-  } catch (error) {
-    logger.error("Failed to create order:", error);
     return res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
+      .status(status.OK)
+      .json({ message: "Order placed successfully!", data: insertedOrder });
+  } catch (error) {
+    logger.error(error);
+    return res.status(500).json({ message: (error as Error).message });
   }
 };
 
