@@ -469,7 +469,7 @@ export const branchSchedule = pgTable("branchSchedule", {
     .notNull()
     .references(() => branch.id, { onDelete: "cascade" }),
 
-  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday, 6 = Saturday
+  dayOfWeek: integer("day_of_week").notNull(),
 
   isActive: boolean("is_active").default(true).notNull(),
 });

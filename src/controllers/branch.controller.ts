@@ -18,6 +18,7 @@ const apiBranchAddPayloadSchema = branchInsertSchema
     areas: z.array(z.string()).optional(),
     email: z.string().email("Invalid email format.").optional(),
     orderType: z.enum(["both", "pickup", "delivery"]).optional(),
+    operationHours: z.string().optional(),
   });
 
 const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
@@ -29,6 +30,7 @@ const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
   phoneNumber: z.string().optional(),
   openingTime: z.string().optional(),
   closingTime: z.string().optional(),
+  operatingHours: z.string().optional(),
   status: z.enum(["open", "closed"]).optional(),
   cityId: z.string().optional(),
   manager: z.string().optional(),
@@ -37,13 +39,15 @@ const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
 export const addBranchController = async (req: Request, res: Response) => {
   try {
     const validation = apiBranchAddPayloadSchema.safeParse(req.body);
-    console.log(req.body);
+    console.log("req.body", req.body);
     if (!validation.success) {
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
         error: validation.error.format(),
       });
     }
+
+    console.log("validation", validation);
 
     const { cityName, openingTime, closingTime, ...branchData } =
       validation.data as {
@@ -57,6 +61,7 @@ export const addBranchController = async (req: Request, res: Response) => {
         areas?: string[];
         email?: string;
         deliveryRate: number;
+        operatingHours?: string;
         orderType: "both" | "pickup" | "delivery";
       };
 
@@ -80,7 +85,12 @@ export const addBranchController = async (req: Request, res: Response) => {
       // Insert branch
       const [insertedBranch] = await tx
         .insert(branch)
-        .values({ ...branchData, cityId, manager: branchData.manager || "" })
+        .values({
+          ...branchData,
+          cityId,
+          operatingHours: validation.data.operationHours,
+          manager: branchData.manager || "",
+        })
         .returning({ id: branch.id });
 
       // Insert schedule for 7 days if openingTime & closingTime exist
