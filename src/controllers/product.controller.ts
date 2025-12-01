@@ -282,27 +282,67 @@ export const insertBulkController = async (req: any, res: any) => {
       return res.status(400).json({ message: "El CSV está vacío" });
     }
 
+    function getValue(row: any, keys: any) {
+      const rowKeys = Object.keys(row);
+
+      for (const key of rowKeys) {
+        for (const match of keys) {
+          if (key.toLowerCase() === match.toLowerCase()) {
+            return String(row[key]).trim();
+          }
+        }
+      }
+
+      return "";
+    }
+
     const formatted = await Promise.all(
       rows.map(async (row, index) => {
-        console.log(row);
-        const name = (row["Nombre"] || "").trim();
-        const categoryRaw = (
-          row["Categoría"] ||
-          row["Categorías"] ||
-          ""
-        ).trim();
-        const price = row["Precio normal"] || "0";
-        const imageUrl = (row["Imágenes"] || row["Imagen"] || "").trim();
+        // Name
+        const name = getValue(row, ["Nombre", "Name", "Producto", "Product"]);
+
+        // Category
+        const categoryRaw = getValue(row, [
+          "Categoría",
+          "Categorías",
+          "Category",
+          "Categories",
+        ]);
 
         if (!categoryRaw) {
           throw new Error(`La categoría está vacía en la fila ${index + 2}`);
         }
 
+        // Price
+        const price =
+          getValue(row, [
+            "Precio",
+            "Precio normal",
+            "Price",
+            "Regular Price",
+          ]) || "0";
+
+        // Description (English + Spanish)
+        const description = getValue(row, [
+          "Descripción",
+          "Descripción corta",
+          "Description",
+          "Short Description",
+          "Desc",
+        ]);
+
+        // Image
+        const imageUrl = getValue(row, [
+          "Imágenes",
+          "Imagen",
+          "Images",
+          "Image",
+          "Img",
+        ]);
+
         const categoryName = categoryRaw.toLowerCase();
 
-        console.log(categoryName);
-
-        // Lookup category case-insensitively
+        // Category lookup
         const [existingCategory] = await database
           .select()
           .from(category)
@@ -331,7 +371,7 @@ export const insertBulkController = async (req: any, res: any) => {
 
         return {
           name,
-          description: "",
+          description,
           price,
           categoryId,
           image: imgURL,
