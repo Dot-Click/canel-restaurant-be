@@ -12,9 +12,6 @@ import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
 import cloudinary from "@/configs/cloudinary.config";
 import { eq, or, isNull, ilike, sql } from "drizzle-orm";
-// import * as XLSX from "xlsx";
-
-// import ExcelJS from "exceljs";
 import fs from "fs";
 import Papa from "papaparse";
 
@@ -25,6 +22,7 @@ interface FormData {
   categoryId: string;
   addonItemIds: string[];
   availability: string;
+  variants?: string;
 }
 
 export const insertController = async (req: Request, res: Response) => {
@@ -61,7 +59,7 @@ export const insertController = async (req: Request, res: Response) => {
     const payloadToValidate = {
       ...otherFields,
       addonItemIds,
-      variants, // MODIFICATION: Add parsed variants to the payload
+      variants,
       availability: Array.isArray(otherFields.availability)
         ? otherFields.availability[0] === "true"
         : otherFields.availability === "true",
@@ -404,34 +402,53 @@ export const updateController = async (req: Request, res: Response) => {
 
     let validatedData: Partial<typeof products.$inferInsert> = {};
 
+    // -------------------- JSON REQUEST --------------------
     if (req.is("application/json")) {
       const { data, error } = productUpdateSchema.safeParse(req.body);
 
       if (error) {
-        return res
-          .status(status.UNPROCESSABLE_ENTITY)
-          .json({ message: "Validation error", error: error.format() });
+        return res.status(status.UNPROCESSABLE_ENTITY).json({
+          message: "Validation error",
+          error: error.format(),
+        });
       }
+
+      console.log("DATA:-", req.body);
 
       validatedData = {
         ...data,
         price: data.price !== undefined ? String(data.price) : undefined,
       };
-    } else if (req.is("multipart/form-data")) {
+    }
+
+    // -------------------- MULTIPART FORM REQUEST --------------------
+    else if (req.is("multipart/form-data")) {
       const form = formidable();
-
       const [formData, files] = await form.parse(req);
-
+      console.log("formData", formData);
       const newProductImage = files.productImage?.[0];
-
       const fields = extractFormFields<FormData>(formData);
+
+      console.log("fields:-", fields);
+
+      // Parse variants if present
+      if (fields.variants) {
+        try {
+          fields.variants = JSON.parse(fields.variants);
+        } catch {
+          return res
+            .status(status.BAD_REQUEST)
+            .json({ message: "Invalid variants JSON" });
+        }
+      }
 
       const { data, error } = productUpdateSchema.safeParse(fields);
 
       if (error) {
-        return res
-          .status(status.UNPROCESSABLE_ENTITY)
-          .json({ message: "Validation error", error: error.format() });
+        return res.status(status.UNPROCESSABLE_ENTITY).json({
+          message: "Validation error",
+          error: error.format(),
+        });
       }
 
       validatedData = {
@@ -439,61 +456,67 @@ export const updateController = async (req: Request, res: Response) => {
         price: data.price !== undefined ? String(data.price) : undefined,
       };
 
+      // ----- Image update logic -----
       if (newProductImage) {
-        const existingProduct = await database.query.products.findFirst({
+        const existing = await database.query.products.findFirst({
           where: eq(products.id, id),
           columns: { image: true },
         });
-        if (existingProduct?.image) {
-          const publicId = existingProduct.image
-            .split("/")
-            .pop()
-            ?.split(".")[0];
-          if (publicId)
+
+        // Remove old image
+        if (existing?.image) {
+          const publicId = existing.image.split("/").pop()?.split(".")[0];
+          if (publicId) {
             await cloudinary.uploader.destroy(`products/${publicId}`);
+          }
         }
 
-        const cloudinaryResponse = await cloudinary.uploader.upload(
+        // Upload new image
+        const cloudinaryRes = await cloudinary.uploader.upload(
           newProductImage.filepath,
           { folder: "products" }
         );
-        validatedData.image = cloudinaryResponse.secure_url;
+
+        validatedData.image = cloudinaryRes.secure_url;
       }
-    } else {
-      return res
-        .status(status.UNSUPPORTED_MEDIA_TYPE)
-        .json({ message: "Content-Type not supported." });
     }
 
-    // --- Common logic for both scenarios from here ---
+    // -------------------- UNSUPPORTED CONTENT TYPE --------------------
+    else {
+      return res.status(status.UNSUPPORTED_MEDIA_TYPE).json({
+        message: "Content-Type not supported.",
+      });
+    }
 
+    // -------------------- NO FIELDS PROVIDED --------------------
     if (Object.keys(validatedData).length === 0) {
       return res
         .status(status.BAD_REQUEST)
         .json({ message: "No fields provided to update." });
     }
 
-    const updatedProduct = await database
+    // -------------------- PERFORM UPDATE --------------------
+    const updated = await database
       .update(products)
       .set(validatedData)
       .where(eq(products.id, id))
       .returning();
 
-    if (updatedProduct.length === 0) {
+    if (updated.length === 0) {
       return res
         .status(status.NOT_FOUND)
         .json({ message: "Product not found" });
     }
 
-    res.status(status.OK).json({
+    return res.status(status.OK).json({
       message: "Product updated successfully",
-      data: updatedProduct[0],
+      data: updated[0],
     });
   } catch (error) {
     logger.error(error);
-    res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({ message: (error as Error).message });
+    return res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: (error as Error).message,
+    });
   }
 };
 

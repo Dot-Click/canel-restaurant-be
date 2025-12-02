@@ -123,6 +123,7 @@ export const verification = pgTable("verification", {
 export type ProductVariant = {
   name: string;
   price: number;
+  discount: number;
 };
 
 export const products = pgTable("products", {
@@ -507,6 +508,9 @@ export const timeSlotRelations = relations(timeSlot, ({ one }) => ({
 export const variantSchema = z.object({
   name: z.string().min(1, "Variant name is required"),
   price: z.coerce.number().positive("Variant price must be a positive number"),
+  discount: z.coerce
+    .number()
+    .positive("Variant discount must be a positive number"),
 });
 
 export const productInsertSchema = z.object({
