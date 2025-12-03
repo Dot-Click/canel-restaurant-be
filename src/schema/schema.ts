@@ -414,7 +414,11 @@ export const branch = pgTable("branch", {
   }).notNull(), //separate city table
   // state: varchar("state"),
   areas: json("areas").$type<string[]>(),
-  deliveryRate: integer("delivery_rate").default(5).notNull(),
+
+  deliveryRates:
+    json("delivery_rates").$type<
+      { min: number; max: number; price: number }[]
+    >(),
   orderType: varchar("order_type", {
     enum: ["both", "pickup", "delivery"],
   }).default("both"),
