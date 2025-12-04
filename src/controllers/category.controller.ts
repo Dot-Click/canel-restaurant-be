@@ -15,8 +15,6 @@ import Papa from "papaparse";
 export const insertController = async (req: Request, res: Response) => {
   try {
     const { data, error } = categoryInsertSchema.safeParse(req.body);
-    // console.log("This is category data:", data);
-    console.log("This is request body of category", req.body);
 
     if (!data) {
       logger.error("Validation failed", error);
@@ -106,7 +104,6 @@ export const fetchController = async (req: Request, res: Response) => {
 
 export const updateController = async (req: Request, res: Response) => {
   try {
-    // Get the ID from URL parameters, just like in deleteController
     const { id } = req.params;
 
     if (!id) {
@@ -115,10 +112,10 @@ export const updateController = async (req: Request, res: Response) => {
         .json({ message: "Category ID is required in the URL." });
     }
 
-    // Validate the request body using the new partial schema
     const { data, error } = categoryUpdateSchema.safeParse(req.body);
 
     if (error) {
+      console.log(error);
       logger.error("Update validation failed", error);
       return res.status(status.UNPROCESSABLE_ENTITY).json({
         message: "Validation error",
@@ -217,10 +214,8 @@ export const insertBulkCategoriesController = async (
     });
   } catch (err: any) {
     console.error(err);
-    res
-      .status(status.INTERNAL_SERVER_ERROR)
-      .json({
-        message: err.message || "Ocurrió un error al procesar el archivo.",
-      });
+    res.status(status.INTERNAL_SERVER_ERROR).json({
+      message: err.message || "Ocurrió un error al procesar el archivo.",
+    });
   }
 };

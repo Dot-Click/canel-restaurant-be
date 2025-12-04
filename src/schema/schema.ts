@@ -10,6 +10,7 @@ import {
   numeric,
   json,
   time,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
@@ -170,6 +171,7 @@ export const category = pgTable("category", {
   description: varchar("description").notNull(),
   visibility: boolean("visibility").default(true),
   status: varchar("status", { enum: ["publish", "pending"] }),
+  volumeDiscountRules: jsonb("volume_discount_rules"),
   ...timeStamps,
 });
 
@@ -551,7 +553,29 @@ export const staffIdParamSchema = z.object({
 });
 
 export const addonInsertSchema = createInsertSchema(addon);
-export const categoryInsertSchema = createInsertSchema(category);
+
+const volumeDiscountSchema = z
+  .object({
+    enabled: z.boolean(),
+    type: z.enum(["fixed_amount_off", "percentage_off"]),
+    tiers: z.array(
+      z.object({
+        minQty: z.number(),
+        discountAmount: z.number(),
+      })
+    ),
+  })
+  .nullable()
+  .optional();
+
+export const categoryInsertSchema = createInsertSchema(category, {
+  name: z.string().min(1, "Name is required"),
+  description: z.string(),
+  visibility: z.boolean(),
+  status: z.enum(["publish", "pending"]),
+  volumeDiscountRules: volumeDiscountSchema,
+});
+
 export const cartInsertSchema = createInsertSchema(cart);
 export const branchInsertSchema = createInsertSchema(branch);
 export const orderInsertSchema = createInsertSchema(orders);

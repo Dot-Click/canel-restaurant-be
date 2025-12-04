@@ -112,7 +112,7 @@ export const insertController = async (req: Request, res: Response) => {
         onlinePaymentProveImage: deliveryImageUrl,
       } as any)
       .returning();
-
+    console.log(itemsInCart);
     // --- insert order items ---
     for (const item of itemsInCart) {
       if (!item.product) continue;
@@ -131,6 +131,14 @@ export const insertController = async (req: Request, res: Response) => {
       //   itemImageUrl = cloudResp.secure_url;
       // }
 
+      const price =
+        parseFloat(item.variantPrice || "0") === 0 ||
+        item.variantPrice === "0.00"
+          ? item.product.price
+          : item.variantPrice;
+
+      const priceToInsert = parseFloat(price || "0");
+
       const [insertedItem] = await database
         .insert(orderItems)
         .values({
@@ -140,7 +148,7 @@ export const insertController = async (req: Request, res: Response) => {
             ? `${item.product.name} - ${item.variantName}`
             : item.product.name,
           quantity: item.quantity,
-          price: String(item.variantPrice ?? item.product.price),
+          price: priceToInsert,
           instructions: item.instructions || "",
           discount: Number(item.product.discount) || 0,
         } as any)
@@ -212,20 +220,43 @@ export const fetchController = async (req: Request, res: Response) => {
 
     let orderList = [];
 
-    if (userRole === "admin") {
-      orderList = await database.query.orders.findMany({
-        orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+    const relationsQuery = {
+      orderItems: {
         with: {
-          orderItems: {
+          orderAddons: {
             with: {
-              orderAddons: {
-                with: {
-                  addonItem: true,
+              addonItem: true,
+            },
+          },
+
+          product: {
+            columns: {
+              id: true,
+              name: true,
+              price: true,
+              discount: true,
+              categoryId: true,
+            },
+            with: {
+              category: {
+                columns: {
+                  id: true,
+                  name: true,
+                  volumeDiscountRules: true,
                 },
               },
             },
           },
         },
+      },
+
+      branch: true,
+    } as const;
+
+    if (userRole === "admin") {
+      orderList = await database.query.orders.findMany({
+        orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+        with: relationsQuery,
       });
     } else if (userRole === "manager") {
       const branchData = await database.query.branch.findFirst({
@@ -241,17 +272,7 @@ export const fetchController = async (req: Request, res: Response) => {
       orderList = await database.query.orders.findMany({
         where: (orders, { eq }) => eq(orders.branchId, branchData.id),
         orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-        with: {
-          orderItems: {
-            with: {
-              orderAddons: {
-                with: {
-                  addonItem: true, // ✅ fetch addon details
-                },
-              },
-            },
-          },
-        },
+        with: relationsQuery,
       });
     } else {
       return res.status(status.FORBIDDEN).json({
@@ -323,7 +344,17 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
       with: {
         orderItems: {
           with: {
-            product: true,
+            product: {
+              with: {
+                category: {
+                  columns: {
+                    id: true,
+                    name: true,
+                    volumeDiscountRules: true,
+                  },
+                },
+              },
+            },
             orderAddons: {
               with: {
                 addonItem: true,

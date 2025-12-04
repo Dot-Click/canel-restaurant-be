@@ -83,11 +83,6 @@ app.use(express.json());
 app.post("/api/wati/webhook", async (req, res) => {
   const incomingMessage = req.body;
 
-  // console.log("--- Received Webhook from WATI ---");
-  // console.log("This is the incoming message", req.body);
-  // console.log(JSON.stringify(incomingMessage, null, 2));
-  // console.log("------------------------------------");
-
   if (!incomingMessage) {
     return res.json("Error");
   }
