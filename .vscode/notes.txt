@@ -10,3 +10,6 @@
 
 
 Answer to point 15
+
+
+cart quantity for variants

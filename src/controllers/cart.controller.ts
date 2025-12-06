@@ -303,15 +303,15 @@ export const fetchController = async (req: Request, res: Response) => {
                 image: true,
                 size: true,
                 addonItemIds: true,
-                categoryId: true, // ✅ 1. Ensure we get the FK
+                categoryId: true,
               },
-              // ✅ 2. Fetch the Category Relation to get the Rules
+
               with: {
                 category: {
                   columns: {
                     id: true,
                     name: true,
-                    volumeDiscountRules: true, // <--- This is the JSONB column we added
+                    volumeDiscountRules: true,
                   },
                 },
               },

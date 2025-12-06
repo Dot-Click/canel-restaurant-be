@@ -18,6 +18,9 @@ import formidable from "formidable";
 import cloudinary from "@/configs/cloudinary.config";
 import { endOfWeek, startOfWeek } from "date-fns";
 import crypto from "crypto";
+import { orderPlacementTemplate } from "@/utils/brevo";
+import { sendgridClient } from "@/configs/mailgun.config";
+import { env } from "@/utils/env.utils";
 
 export const insertController = async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -169,6 +172,63 @@ export const insertController = async (req: Request, res: Response) => {
     // --- clear cart ---
     await database.delete(cartItems).where(eq(cartItems.cartId, cartId));
 
+    const [currentUser] = await database
+      .select({ email: users.email, name: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (currentUser?.email) {
+      const emailItems = itemsInCart.map((item) => {
+        const productName = item.product?.name || "Item";
+
+        const baseName = item.variantName
+          ? `${productName} - ${item.variantName}`
+          : productName;
+
+        const addonNames =
+          item.selectedAddons?.map(
+            (a) => `${a.addonItem.name} (x${a.quantity})`
+          ) || [];
+
+        return {
+          name: baseName,
+          quantity: item.quantity,
+          selectedAddons: addonNames,
+        };
+      });
+
+      // 3. Generate HTML
+      const emailHtml = orderPlacementTemplate({
+        userName: currentUser.name || "Valued Customer",
+        orderId: insertedOrder.id,
+        orderDate: new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        orderType: cleanedForm.type || "pickup",
+        shippingAddress: cleanedForm.address,
+        items: emailItems,
+      });
+
+      // 4. Send via SendGrid
+      // Ensure 'env.SENDGRID_FROM_EMAIL' is set in your .env file
+      const msg = {
+        to: currentUser.email,
+        from: env.SENDGRID_SENDER_EMAIL,
+        subject: `Order Confirmation #${insertedOrder.id.substring(0, 8)}`,
+        html: emailHtml,
+      };
+
+      // Non-blocking send (catch error so it doesn't crash the response)
+      sendgridClient.send(msg).catch((err) => {
+        console.log(err.response.body);
+        logger.error("Failed to send SendGrid email:", err);
+      });
+    }
+
     return res
       .status(status.OK)
       .json({ message: "Order placed successfully!", data: insertedOrder });
@@ -300,7 +360,7 @@ export const updateController = async (req: Request, res: Response) => {
     if (!id) {
       return res
         .status(status.BAD_REQUEST)
-        .json({ message: "Order ID is required." });
+        .json({ message: "Se requiere ID de pedido." });
     }
 
     if (updateData.id) {
@@ -310,7 +370,7 @@ export const updateController = async (req: Request, res: Response) => {
     if (Object.keys(updateData).length === 0) {
       return res
         .status(status.BAD_REQUEST)
-        .json({ message: "No update data provided." });
+        .json({ message: "No se proporcionaron datos de actualización." });
     }
 
     const updatedOrder = await database
@@ -324,11 +384,11 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     res.status(status.OK).json({
-      message: "Order updated successfully",
+      message: "Pedido actualizado exitosamente",
       data: updatedOrder[0],
     });
   } catch (error) {
-    logger.error("Failed to update order:", error);
+    logger.error("No se pudo actualizar el pedido:", error);
     res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ message: (error as Error).message });
@@ -513,7 +573,7 @@ export const assignRiderController = async (req: Request, res: Response) => {
     }
 
     res.status(status.OK).json({
-      message: "Order successfully assigned to rider.",
+      message: "Orden asignada exitosamente al ciclista.",
       data: updatedOrder[0],
     });
   } catch (error) {
