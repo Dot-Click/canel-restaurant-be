@@ -41,12 +41,15 @@ export const auth = betterAuth({
     //   enabled: true,
     //   domain: env.FRONTEND_DOMAIN,
     // },
+    crossSubDomainCookies: {
+      enabled: false,
+    },
     cookies: {
       session_token: {
         attributes: {
-          sameSite: isProduction ? "None" : "lax",
-          httpOnly: isProduction,
-          secure: isProduction,
+          sameSite: "lax",
+          httpOnly: true,
+          secure: true,
         },
       },
     },
