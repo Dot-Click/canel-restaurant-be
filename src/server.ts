@@ -66,6 +66,8 @@ swagger(app);
 prepareProductionStance({ isProduction, app, sessionOptions });
 prepareMigration(isProduction);
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
 io.on("connection", registerEvents);
 app.use(express.static("public"));
