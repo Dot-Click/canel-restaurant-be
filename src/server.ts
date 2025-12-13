@@ -48,6 +48,13 @@ const isProduction = app.get("env") === "production";
 const corsOptions: CorsOptions = {
   origin: env.FRONTEND_DOMAIN,
   credentials: true,
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "cf-connecting-ip",
+    "x-api-key",
+    "Cookie",
+  ],
 };
 
 app.use(cors(corsOptions));

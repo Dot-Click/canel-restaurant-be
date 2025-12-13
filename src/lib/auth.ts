@@ -30,6 +30,7 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
+
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
@@ -47,6 +48,7 @@ export const auth = betterAuth({
           sameSite: "none",
           httpOnly: true,
           secure: true,
+          domain: env.FRONTEND_DOMAIN,
         },
       },
     },
@@ -87,6 +89,7 @@ export const auth = betterAuth({
       clientId: env.GOOGLE_CLIENT_ID as string,
       clientSecret: env.GOOGLE_CLIENT_SECRET as string,
       enabled: true,
+      accessType: "offline",
     },
   },
   plugins: [
