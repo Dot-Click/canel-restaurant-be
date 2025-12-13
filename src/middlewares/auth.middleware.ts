@@ -34,12 +34,14 @@ export const protectRoute = async (
 
     try {
       const session = await auth.api.getSession({ headers: cookieHeaders });
-
+      console.log(session);
       if (session?.user) {
         user = session.user;
       }
+      console.log(user);
     } catch (err) {
       // ignore session errors, fallback to token
+      console.log("err", err);
     }
 
     // -----------------------------

@@ -406,14 +406,14 @@ export const updateController = async (req: Request, res: Response) => {
     if (req.is("application/json")) {
       const { data, error } = productUpdateSchema.safeParse(req.body);
 
+      console.log("DATA:-", error);
+
       if (error) {
         return res.status(status.UNPROCESSABLE_ENTITY).json({
           message: "Validation error",
           error: error.format(),
         });
       }
-
-      console.log("DATA:-", req.body);
 
       validatedData = {
         ...data,
