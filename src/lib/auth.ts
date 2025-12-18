@@ -55,7 +55,7 @@ export const auth = betterAuth({
       session_token: {
         attributes: {
           httpOnly: true,
-          sameSite: "lax",
+          sameSite: "none",
           secure: false,
         },
       },
