@@ -5,6 +5,7 @@ import { env } from "@/utils/env.utils";
 import {
   admin as adminPlugin,
   bearer,
+  createAuthMiddleware,
   emailOTP,
   phoneNumber,
   // phoneNumber,
@@ -36,6 +37,14 @@ export const auth = betterAuth({
       maxAge: 5 * 60,
     },
   },
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      // console.log("ctx.path", ctx.path);
+      if (ctx.path.includes("/callback")) {
+        console.log("ctx", ctx);
+      }
+    }),
+  },
   advanced: {
     useSecureCookies: isProduction,
     // crossSubDomainCookies: {
@@ -45,10 +54,9 @@ export const auth = betterAuth({
     cookies: {
       session_token: {
         attributes: {
-          sameSite: "none",
           httpOnly: true,
-          secure: true,
-          domain: env.FRONTEND_DOMAIN,
+          sameSite: "lax",
+          secure: false,
         },
       },
     },
