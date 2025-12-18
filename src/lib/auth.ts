@@ -56,7 +56,7 @@ export const auth = betterAuth({
         attributes: {
           httpOnly: true,
           sameSite: "none",
-          secure: false,
+          secure: true,
         },
       },
     },
