@@ -55,6 +55,7 @@ const corsOptions: CorsOptions = {
     "x-api-key",
     "Cookie",
   ],
+  exposedHeaders: ["Authorization"],
 };
 
 app.use(cors(corsOptions));
