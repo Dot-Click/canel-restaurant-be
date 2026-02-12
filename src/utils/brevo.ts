@@ -265,3 +265,114 @@ export const orderPlacementTemplate = ({
 </html>
   `;
 };
+
+interface OrderUpdateProps {
+  userName: string;
+  orderId: string;
+  orderDate: string;
+  orderStatus:
+    | "pending"
+    | "preparing"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered"
+    | "cancelled";
+  orderType: "pickup" | "delivery" | null;
+  estimatedTime?: string;
+}
+
+export const orderUpdateTemplate = ({
+  userName,
+  orderId,
+  orderDate,
+  orderStatus,
+  orderType,
+  estimatedTime,
+}: OrderUpdateProps) => {
+  const primaryColor = "#3B5545";
+  const accentColor = "#4C9F7B";
+
+  const statusTextMap: Record<string, string> = {
+    pending: "Your order is pending confirmation.",
+    preparing: "Your order is being prepared 👨‍🍳",
+    ready: "Your order is ready for pickup 🛍️",
+    out_for_delivery: "Your order is on the way 🚚",
+    delivered: "Your order has been delivered ✅",
+    cancelled: "Your order has been cancelled ❌",
+  };
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;font-family:Arial,sans-serif;color:#333;">
+
+    <!-- Header -->
+    <div style="text-align:center;padding-bottom:20px;">
+      <img src="${process.env.FRONTEND_DOMAIN}/images/Logos/logo.png"
+           alt="Canel Restaurant"
+           style="max-width:100px;" />
+    </div>
+
+    <!-- Content -->
+    <div style="background:#ffffff;padding:40px;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,0.1);">
+
+      <h2 style="color:${primaryColor};text-align:center;margin-top:0;">
+        Order Update
+      </h2>
+
+      <p style="font-size:16px;text-align:center;">
+        Hi ${userName},
+      </p>
+
+      <p style="font-size:16px;text-align:center;">
+        ${statusTextMap[orderStatus]}
+      </p>
+
+      <div style="background:#f9f9f9;padding:15px;border-radius:6px;margin:25px 0;text-align:center;">
+        <p style="margin:0;font-size:14px;color:#666;">Order ID</p>
+        <p style="margin:6px 0;font-size:18px;font-weight:bold;color:${primaryColor};">
+          #${orderId}
+        </p>
+        <p style="margin:0;font-size:12px;color:#888;">
+          ${orderDate}
+        </p>
+      </div>
+
+      <p style="font-size:14px;">
+        <strong>Order Type:</strong> ${
+          orderType === "delivery" ? "Delivery" : "Pickup"
+        }
+      </p>
+
+      ${
+        estimatedTime
+          ? `<p style="font-size:14px;"><strong>Estimated Time:</strong> ${estimatedTime}</p>`
+          : ""
+      }
+
+      <!-- CTA -->
+      <div style="text-align:center;margin-top:35px;">
+        <a href="${process.env.FRONTEND_DOMAIN}/orders/${orderId}"
+           style="background:${accentColor};color:#fff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;">
+          View Order Details
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align:center;padding-top:20px;font-size:12px;color:#888;">
+      <p>Need help? support@canelrestaurant.com</p>
+      <p>© ${new Date().getFullYear()} Canel Restaurant</p>
+    </div>
+
+  </div>
+</body>
+</html>
+  `;
+};

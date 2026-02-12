@@ -11,6 +11,7 @@ import {
   json,
   time,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { createInsertSchema } from "drizzle-zod";
@@ -137,9 +138,9 @@ export const products = pgTable("products", {
     "medium"
   ),
   discount: integer("discount"),
-  categoryId: foreignkeyRef("category_id", () => category.id, {
-    onDelete: "cascade",
-  }).notNull(),
+  // categoryId: foreignkeyRef("category_id", () => category.id, {
+  //   onDelete: "cascade",
+  // }).notNull(),
   addonItemIds: json("addon_item_ids").$type<string[]>().default([]),
   branchId: foreignkeyRef("branch_id", () => branch.id, {
     onDelete: "set null",
@@ -152,16 +153,28 @@ export const products = pgTable("products", {
   ...timeStamps,
 });
 
-export const productsrelation = relations(products, ({ one }) => ({
+export const productsrelation = relations(products, ({ one, many }) => ({
   branch: one(branch, {
     fields: [products.branchId],
     references: [branch.id],
   }),
-  category: one(category, {
-    fields: [products.categoryId],
-    references: [category.id],
-  }),
+  category: many(productCategories),
 }));
+
+export const productCategories = pgTable(
+  "product_categories",
+  {
+    productId: foreignkeyRef("product_id", () => products.id, {
+      onDelete: "cascade",
+    }).notNull(),
+    categoryId: foreignkeyRef("category_id", () => category.id, {
+      onDelete: "cascade",
+    }).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.productId, t.categoryId] }),
+  })
+);
 
 // TODO Schema & Relations of Category
 export const category = pgTable("category", {
@@ -175,8 +188,22 @@ export const category = pgTable("category", {
 });
 
 export const categoryrelation = relations(category, ({ many }) => ({
-  products: many(products),
+  products: many(productCategories),
 }));
+
+export const productCategoriesRelations = relations(
+  productCategories,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [productCategories.productId],
+      references: [products.id],
+    }),
+    category: one(category, {
+      fields: [productCategories.categoryId],
+      references: [category.id],
+    }),
+  })
+);
 
 // TODO Schema & Relations of Orders
 export const orders = pgTable("orders", {
@@ -199,6 +226,7 @@ export const orders = pgTable("orders", {
   email: varchar("email"),
   changeRequest: varchar("change_request"),
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
+  paymentType: varchar("paymentType", { enum: ["cash", "bolivars", "zelle"] }),
   deliveryImage: varchar("delivery_image"),
   tip: numeric("tip", { precision: 10, scale: 2 }).default("0.00"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),
@@ -431,6 +459,14 @@ export const branch = pgTable("branch", {
   ...timeStamps,
 });
 
+export const currencyRates = pgTable("currency_rates", {
+  id: uuid("id").primaryKey(),
+  baseCurrency: varchar("base_currency", { length: 3 }).notNull(),
+  quoteCurrency: varchar("quote_currency", { length: 3 }).notNull(),
+  rate: numeric("rate", { precision: 18, scale: 6 }).notNull(),
+  ...timeStamps,
+});
+
 export const city = pgTable("city", {
   id: uuid().primaryKey(),
   name: varchar("name").notNull(),
@@ -518,7 +554,10 @@ export const variantSchema = z.object({
 export const productInsertSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),
-  categoryId: z.string().min(1, "Category is required"),
+  // categoryId: z.string().min(1, "Category is required"),
+  categoryId: z
+    .array(z.string().min(1))
+    .min(1, "At least one category is required"),
   price: z.coerce.number().positive("Price must be a positive number"),
   availability: z.coerce.boolean().optional(),
   tax: z.number().optional(),

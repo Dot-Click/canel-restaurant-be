@@ -71,7 +71,11 @@ orderRoutes.patch(
 
 // orderRoutes.get("/fetch-earned-money", protectRoute, fetchRidersEarnedMoney)
 
-orderRoutes.get("/fetch-earned-money/:id", protectRoute, fetchRiderEarnedMoneyById)
+orderRoutes.get(
+  "/fetch-earned-money/:id",
+  protectRoute,
+  fetchRiderEarnedMoneyById
+);
 
 orderRoutes.get("/:riderId/orders", protectRoute, getOrdersByRiderIdController);
 

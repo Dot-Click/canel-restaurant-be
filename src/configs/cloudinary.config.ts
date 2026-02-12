@@ -10,4 +10,32 @@ cloudinary.config({
   api_secret: env.CLOUDINARY_API_SECRET,
 });
 
+export async function uploadBufferToCloudinary(
+  buffer: Buffer,
+  folder = "wati-payment-evidence"
+): Promise<string> {
+  if (!buffer || !buffer.length) {
+    throw new Error("Buffer is empty; cannot upload to Cloudinary");
+  }
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "image",
+        folder,
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(
+            error || new Error("Cloudinary upload failed: no result")
+          );
+        }
+        resolve(result.secure_url);
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
+}
+
 export default cloudinary;

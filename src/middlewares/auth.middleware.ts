@@ -19,9 +19,6 @@ export const protectRoute = async (
   next: NextFunction
 ) => {
   try {
-    console.log("authHeader", req.headers);
-    console.log("cookies:", req.cookies);
-
     const headers = fromNodeHeaders(req.headers);
 
     const session = await auth.api.getSession({ headers });

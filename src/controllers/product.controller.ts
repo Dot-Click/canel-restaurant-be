@@ -4,6 +4,7 @@ import { logger } from "@/utils/logger.util";
 import { database } from "@/configs/connection.config";
 import {
   category,
+  productCategories,
   productInsertSchema,
   products,
   productUpdateSchema,
@@ -19,7 +20,7 @@ interface FormData {
   name: string;
   price: string;
   description: string;
-  categoryId: string;
+  categoryId: string[];
   addonItemIds: string[];
   availability: string;
   variants?: string;
@@ -53,11 +54,22 @@ export const insertController = async (req: Request, res: Response) => {
         : [formData.addonItemIds];
     }
 
+    let categoryIds: string[] = [];
+
+    if (formData.categoryId) {
+      categoryIds = Array.isArray(formData.categoryId)
+        ? formData.categoryId
+        : [formData.categoryId];
+    }
+
     const otherFields =
-      extractFormFields<Omit<FormData, "addonItemIds">>(formData);
+      extractFormFields<Omit<FormData, "addonItemIds" | "categoryId">>(
+        formData
+      );
 
     const payloadToValidate = {
       ...otherFields,
+      categoryId: categoryIds,
       addonItemIds,
       variants,
       availability: Array.isArray(otherFields.availability)
@@ -91,25 +103,35 @@ export const insertController = async (req: Request, res: Response) => {
         .json({ message: "Problem with image" });
     }
 
-    const insertedProduct = await database
-      .insert(products)
-      .values({
-        name: data.name,
-        description: data.description,
-        price: String(data.price),
-        image: cloudinaryResponse.secure_url,
-        categoryId: data.categoryId,
-        discount: data.discount,
-        availability: data.availability,
-        addonItemIds: data.addonItemIds || [],
-        variants: data.variants || [],
-      })
-      .returning();
+    const [insertedProduct] = await database.transaction(async (tx) => {
+      const [p] = await tx
+        .insert(products)
+        .values({
+          name: data.name,
+          description: data.description,
+          price: String(data.price),
+          image: cloudinaryResponse.secure_url,
+          discount: data.discount,
+          availability: data.availability,
+          addonItemIds: data.addonItemIds || [],
+          variants: data.variants || [],
+        })
+        .returning();
 
-    if (insertedProduct[0]) {
+      await tx.insert(productCategories).values(
+        data.categoryId.map((catId) => ({
+          productId: p.id,
+          categoryId: catId,
+        }))
+      );
+
+      return [p];
+    });
+
+    if (insertedProduct) {
       return res.status(status.CREATED).json({
         message: "Product added successfully",
-        data: insertedProduct[0],
+        data: insertedProduct,
       });
     } else {
       // It's good practice to handle the case where insertion might fail silently
@@ -191,19 +213,37 @@ export const fetchController = async (req: Request, res: Response) => {
 
     if (id) {
       productData = await database.query.products.findFirst({
-        with: { category: true },
+        with: {
+          category: {
+            with: {
+              category: true,
+            },
+          },
+        },
         where: eq(products.id, id),
       });
     } else if (search && typeof search === "string") {
       productData = await database.query.products.findMany({
-        with: { category: true },
+        with: {
+          category: {
+            with: {
+              category: true,
+            },
+          },
+        },
         where: ilike(products.name, `%${search.toLowerCase()}%`),
         orderBy: (products, { desc }) => [desc(products.createdAt)],
       });
       console.log("This is the product data", productData);
     } else {
       productData = await database.query.products.findMany({
-        with: { category: true },
+        with: {
+          category: {
+            with: {
+              category: true,
+            },
+          },
+        },
         orderBy: (products, { desc }) => [desc(products.createdAt)],
       });
     }
@@ -378,10 +418,26 @@ export const insertBulkController = async (req: any, res: any) => {
       })
     );
 
-    const inserted = await database
-      .insert(products)
-      .values(formatted)
-      .returning();
+    const inserted = await database.transaction(async (tx) => {
+      const insertedProducts = await tx
+        .insert(products)
+        .values(formatted.map(({ categoryId, ...rest }) => rest))
+        .returning({ id: products.id });
+
+      const junctionRows = insertedProducts.flatMap((p, index) => {
+        const { categoryId } = formatted[index];
+        return [
+          {
+            productId: p.id,
+            categoryId,
+          },
+        ];
+      });
+
+      await tx.insert(productCategories).values(junctionRows);
+
+      return insertedProducts;
+    });
 
     res.json({ message: "Productos subidos correctamente", data: inserted });
   } catch (err: any) {
@@ -394,6 +450,8 @@ export const updateController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    console.log("DATA:-", req.body);
+
     if (!id) {
       return res
         .status(status.BAD_REQUEST)
@@ -401,23 +459,41 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     let validatedData: Partial<typeof products.$inferInsert> = {};
+    let categoryIds: string[] | undefined; // capture here for later use
 
     // -------------------- JSON REQUEST --------------------
     if (req.is("application/json")) {
-      const { data, error } = productUpdateSchema.safeParse(req.body);
+      const body = req.body as any;
 
-      console.log("DATA:-", error);
+      if (Array.isArray(body.variants)) {
+        body.variants = body.variants.filter(
+          (v: { name: string; price: null | undefined }) =>
+            v &&
+            typeof v.name === "string" &&
+            v.name.trim() !== "" &&
+            v.price !== undefined &&
+            v.price !== null &&
+            Number(v.price) > 0
+        );
+      }
 
-      if (error) {
+      const parseResult = productUpdateSchema.safeParse(body);
+
+      // console.log("DATA:-", parseResult.error);
+
+      if (!parseResult.success) {
         return res.status(status.UNPROCESSABLE_ENTITY).json({
           message: "Validation error",
-          error: error.format(),
+          error: parseResult.error.format(),
         });
       }
 
+      const { categoryId, ...rest } = parseResult.data;
+      categoryIds = categoryId;
+
       validatedData = {
-        ...data,
-        price: data.price !== undefined ? String(data.price) : undefined,
+        ...rest,
+        price: rest.price !== undefined ? String(rest.price) : undefined,
       };
     }
 
@@ -425,16 +501,16 @@ export const updateController = async (req: Request, res: Response) => {
     else if (req.is("multipart/form-data")) {
       const form = formidable();
       const [formData, files] = await form.parse(req);
-      console.log("formData", formData);
+
       const newProductImage = files.productImage?.[0];
       const fields = extractFormFields<FormData>(formData);
 
-      console.log("fields:-", fields);
+      // 1) Parse variants string -> array
+      let parsedVariants: any[] | undefined;
 
-      // Parse variants if present
       if (fields.variants) {
         try {
-          fields.variants = JSON.parse(fields.variants);
+          parsedVariants = JSON.parse(fields.variants as any);
         } catch {
           return res
             .status(status.BAD_REQUEST)
@@ -442,18 +518,37 @@ export const updateController = async (req: Request, res: Response) => {
         }
       }
 
-      const { data, error } = productUpdateSchema.safeParse(fields);
+      // 2) Clean invalid/empty variants
+      if (Array.isArray(parsedVariants)) {
+        parsedVariants = parsedVariants.filter(
+          (v: any) =>
+            v &&
+            typeof v.name === "string" &&
+            v.name.trim() !== "" &&
+            v.price !== undefined &&
+            v.price !== null &&
+            Number(v.price) > 0
+        );
+      }
 
-      if (error) {
+      // 3) Assign back with a cast so TS is happy
+      (fields as any).variants = parsedVariants;
+
+      const parseResult = productUpdateSchema.safeParse(fields);
+
+      if (!parseResult.success) {
         return res.status(status.UNPROCESSABLE_ENTITY).json({
           message: "Validation error",
-          error: error.format(),
+          error: parseResult.error.format(),
         });
       }
 
+      const { categoryId, ...rest } = parseResult.data;
+      categoryIds = categoryId;
+
       validatedData = {
-        ...data,
-        price: data.price !== undefined ? String(data.price) : undefined,
+        ...rest,
+        price: rest.price !== undefined ? String(rest.price) : undefined,
       };
 
       // ----- Image update logic -----
@@ -489,18 +584,40 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     // -------------------- NO FIELDS PROVIDED --------------------
-    if (Object.keys(validatedData).length === 0) {
+    if (Object.keys(validatedData).length === 0 && !categoryIds) {
       return res
         .status(status.BAD_REQUEST)
         .json({ message: "No fields provided to update." });
     }
 
     // -------------------- PERFORM UPDATE --------------------
-    const updated = await database
-      .update(products)
-      .set(validatedData)
-      .where(eq(products.id, id))
-      .returning();
+    const updated = await database.transaction(async (tx) => {
+      const [p] = await tx
+        .update(products)
+        .set(validatedData)
+        .where(eq(products.id, id))
+        .returning();
+
+      if (!p) return [];
+
+      // If categoryIds is provided in payload, sync junction table
+      if (categoryIds) {
+        await tx
+          .delete(productCategories)
+          .where(eq(productCategories.productId, id));
+
+        if (categoryIds.length > 0) {
+          await tx.insert(productCategories).values(
+            categoryIds.map((catId) => ({
+              productId: id,
+              categoryId: catId,
+            }))
+          );
+        }
+      }
+
+      return [p];
+    });
 
     if (updated.length === 0) {
       return res
@@ -539,7 +656,6 @@ export const getProductsForBranch = async (req: Request, res: Response) => {
           price: products.price,
           availability: products.availability,
           status: products.status,
-          categoryId: products.categoryId,
         })
         .from(products)
         .where(or(eq(products.branchId, branchId), isNull(products.branchId)))
@@ -563,7 +679,11 @@ export const getProductsForBranch = async (req: Request, res: Response) => {
         },
       })
       .from(availableProductsCTE)
-      .leftJoin(category, eq(availableProductsCTE.categoryId, category.id))
+      .leftJoin(
+        productCategories,
+        eq(availableProductsCTE.id, productCategories.productId)
+      )
+      .leftJoin(category, eq(productCategories.categoryId, category.id))
       .where(eq(availableProductsCTE.status, "publish"));
 
     if (!result || result.length === 0) {
@@ -579,7 +699,7 @@ export const getProductsForBranch = async (req: Request, res: Response) => {
       const productIds = result.map((p) => p.product.id);
 
       return res.status(200).json({
-        menu: `📋 Available Products:\n${productList}\n\nReply with the product number to order.`,
+        menu: `Available Products:\n${productList}\n\nReply with the product number to order.`,
         productIds,
       });
     }
@@ -609,11 +729,6 @@ export const assignProductToBranch = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Product ID is required." });
     }
 
-    // Note: 'branchId' can be null, so we don't check for its existence,
-    // only that the key is present in the body if you want to be strict.
-    // A check for `branchId === undefined` would be more robust.
-
-    // 3. Perform the update operation in the database
     const updatedProduct = await database
       .update(products)
       .set({
@@ -651,14 +766,20 @@ export const getCategoriesWithProducts = async (
       where: (categories, { eq }) => eq(categories.visibility, true),
       with: {
         products: {
-          where: (products, { eq }) => eq(products.availability, true),
+          with: {
+            product: true,
+          },
         },
       },
     });
 
-    const result = categoriesWithProducts.filter(
-      (category) => category.products.length > 0
-    );
+    // Map junction rows -> plain products[]
+    const result = categoriesWithProducts
+      .map((cat) => ({
+        ...cat,
+        products: cat.products.map((pc) => pc.product),
+      }))
+      .filter((cat) => cat.products.length > 0);
 
     return res.status(status.OK).json({
       message: "Categories and products fetched successfully.",

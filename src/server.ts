@@ -32,8 +32,9 @@ import { scheduleRoute } from "./routes/schedule.route";
 import { userRoute } from "./routes/user.route";
 import { env } from "./utils/env.utils";
 import { smsRoute } from "./routes/sms.route";
-import { watiRoute } from "./routes/wati.route";
+import { uniqueRoute, watiRoute } from "./routes/wati.route";
 import { paymentRoutes } from "./routes/payment.route";
+import { currencyRoutes } from "./routes/currency.route";
 
 config();
 
@@ -46,7 +47,9 @@ console.log("[SERVER STARTUP] FRONTEND_DOMAIN is:", env.FRONTEND_DOMAIN);
 
 const isProduction = app.get("env") === "production";
 const corsOptions: CorsOptions = {
-  origin: env.FRONTEND_DOMAIN,
+  origin:
+    env.FRONTEND_DOMAIN ||
+    "https://canel-restaurant-fe-production.up.railway.app",
   credentials: true,
   allowedHeaders: [
     "Content-Type",
@@ -85,6 +88,7 @@ app.use(cookieParser());
 io.use(authorizeUser);
 // io.engine.use(sessionMiddleware);
 // app.use(sessionMiddleware);
+app.use("/api/wati/", uniqueRoute);
 
 app.use(morgan("dev"));
 app.all("/api/auth/*", toNodeHandler(auth));
@@ -92,7 +96,7 @@ app.use(express.json());
 
 app.post("/api/wati/webhook", async (req, res) => {
   const incomingMessage = req.body;
-
+  console.log(req.body);
   if (!incomingMessage) {
     return res.json("Error");
   }
@@ -107,8 +111,6 @@ app.post("/api/wati/webhook", async (req, res) => {
   }
 });
 
-// app.use(throttle("default"));
-// Add this route to handle requests to the root URL
 app.get("/", (_req, res) => {
   res.status(200).json({
     status: "online",
@@ -118,6 +120,7 @@ app.get("/", (_req, res) => {
 app.use("/api/product/", productRoutes);
 app.use("/api/category/", categoryRoutes);
 app.use("/api/order/", orderRoutes);
+app.use("/api/wati/", watiRoute);
 app.use("/api/branch/", branchRouter);
 app.use("/api/addon-category/", addonRoutes);
 app.use("/api/cart/", cartRoutes);
@@ -126,8 +129,9 @@ app.use("/api/branding/", brandingRoute);
 app.use("/api/schedule/", scheduleRoute);
 app.use("/api/users/", userRoute);
 app.use("/api/broadcast/", smsRoute);
-app.use("/api/wati/", watiRoute);
 app.use("/api/payment/", paymentRoutes);
+
+app.use("/api/currency/", currencyRoutes);
 
 app.use(unknownRoutes);
 

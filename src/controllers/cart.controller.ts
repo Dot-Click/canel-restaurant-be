@@ -303,20 +303,23 @@ export const fetchController = async (req: Request, res: Response) => {
                 image: true,
                 size: true,
                 addonItemIds: true,
-                categoryId: true,
+                // categoryId: true, // remove: no longer on products
               },
-
               with: {
+                // go through junction table
                 category: {
-                  columns: {
-                    id: true,
-                    name: true,
-                    volumeDiscountRules: true,
+                  with: {
+                    category: {
+                      columns: {
+                        id: true,
+                        name: true,
+                        volumeDiscountRules: true,
+                      },
+                    },
                   },
                 },
               },
             },
-            // Keep your existing addon logic exactly the same
             selectedAddons: {
               columns: {
                 quantity: true,

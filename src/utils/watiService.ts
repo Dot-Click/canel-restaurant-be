@@ -1,6 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
 import { env } from "./env.utils";
+import { database } from "@/configs/connection.config";
 
 dotenv.config();
 
@@ -105,3 +106,150 @@ export const sendWatiSessionMessage = async ({
     }
   }
 };
+
+const WATI_BASE_URL = env.WATI_WHATSAPP_ENDPOINT!;
+const WATI_API_KEY = env.WATI_WHATSAPP_ACCESS_TOKEN!;
+
+export async function fetchAndSendNextCategoryPage(
+  waNumber: string,
+  page: number
+) {
+  const limitNum = 10;
+  const offset = (page - 1) * limitNum;
+
+  const categories = await database.query.category.findMany({
+    columns: { id: true, name: true },
+    limit: limitNum,
+    offset,
+    orderBy: (category, { asc }) => [asc(category.name)],
+  });
+
+  const hasMore = categories.length === limitNum;
+
+  await sendCategoryList({
+    to: waNumber,
+    categories,
+    page,
+    hasMore,
+  });
+}
+
+export async function sendProductsForCategory(
+  waNumber: string,
+  categoryId: string
+) {
+  // 1) Load the single category with its products
+  const categoryWithProducts = await database.query.category.findFirst({
+    where: (category, { eq, and }) =>
+      and(eq(category.id, categoryId), eq(category.visibility, true)),
+    with: {
+      products: {
+        with: {
+          product: true,
+        },
+      },
+    },
+  });
+
+  if (!categoryWithProducts) {
+    await sendWatiSessionMessage({
+      recipientPhoneNumber: waNumber,
+      message: "No products found in this category.",
+    });
+    return;
+  }
+
+  const products = categoryWithProducts.products
+    .map((cp) => cp.product)
+    .filter(Boolean);
+
+  if (!products.length) {
+    await sendWatiSessionMessage({
+      recipientPhoneNumber: waNumber,
+      message: "No products found in this category.",
+    });
+    return;
+  }
+
+  // 3) Build a simple text list
+  const textLines = products.map((p, i) => `${i + 1}. ${p.name} - ${p.price}`);
+  const msg = `Products in this category:\n\n${textLines.join("\n")}`;
+
+  await sendWatiSessionMessage({
+    recipientPhoneNumber: waNumber,
+    message: msg,
+  });
+}
+
+export async function sendCategoryList(params: {
+  to: string;
+  categories: { id: string; name: string }[];
+  page: number;
+  hasMore: boolean;
+}) {
+  const { to, categories, page, hasMore } = params;
+
+  const MAX_ROWS = 10;
+
+  let rows = categories.map((c) => ({
+    id: `${c.id}`,
+    title: c.name.slice(0, 24),
+    description: "",
+  }));
+
+  if (hasMore) {
+    rows.push({
+      id: `NEXT_PAGE_${page + 1}`,
+      title: "See more",
+      description: "",
+    });
+  }
+
+  if (hasMore && rows.length >= MAX_ROWS) {
+    rows = rows.slice(0, MAX_ROWS - 1);
+    rows.push({
+      id: `NEXT_PAGE_${page + 1}`,
+      title: "See more",
+      description: "",
+    });
+  } else {
+    rows = rows.slice(0, MAX_ROWS);
+  }
+
+  const payload = {
+    header: "",
+    body: "Select a Category",
+    footer: "",
+    buttonText: "Open menu",
+    sections: [
+      {
+        title: "Categorías",
+        rows,
+      },
+    ],
+  };
+
+  await axios.post(
+    `${WATI_BASE_URL}/api/v1/sendInteractiveListMessage?whatsappNumber=${to}`,
+    payload,
+    { headers: { Authorization: `Bearer ${WATI_API_KEY}` } }
+  );
+}
+
+export async function downloadWatiMedia(fileName: string): Promise<Buffer> {
+  if (!fileName) {
+    throw new Error("fileName is required to download WATI media");
+  }
+
+  const url = `${WATI_BASE_URL}/api/v1/getMedia`;
+
+  const res = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${WATI_API_KEY}`,
+    },
+    params: { fileName },
+    responseType: "arraybuffer",
+  });
+
+  return Buffer.from(res.data);
+}

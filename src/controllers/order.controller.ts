@@ -18,7 +18,7 @@ import formidable from "formidable";
 import cloudinary from "@/configs/cloudinary.config";
 import { endOfWeek, startOfWeek } from "date-fns";
 import crypto from "crypto";
-import { orderPlacementTemplate } from "@/utils/brevo";
+import { orderPlacementTemplate, orderUpdateTemplate } from "@/utils/brevo";
 import { sendgridClient } from "@/configs/mailgun.config";
 import { env } from "@/utils/env.utils";
 
@@ -295,14 +295,19 @@ export const fetchController = async (req: Request, res: Response) => {
               name: true,
               price: true,
               discount: true,
-              categoryId: true,
+              // categoryId: true, // removed, no longer on products
             },
             with: {
+              // product.category is the junction table (productCategories)
               category: {
-                columns: {
-                  id: true,
-                  name: true,
-                  volumeDiscountRules: true,
+                with: {
+                  category: {
+                    columns: {
+                      id: true,
+                      name: true,
+                      volumeDiscountRules: true,
+                    },
+                  },
                 },
               },
             },
@@ -373,14 +378,53 @@ export const updateController = async (req: Request, res: Response) => {
         .json({ message: "No se proporcionaron datos de actualización." });
     }
 
+    const existingOrder = await database
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id));
+
+    if (existingOrder.length === 0) {
+      return res.status(status.NOT_FOUND).json({ message: "Order not found" });
+    }
+
+    const prevOrder = existingOrder[0];
+
+    // 2️⃣ Update order
     const updatedOrder = await database
       .update(orders)
       .set(updateData)
       .where(eq(orders.id, id))
       .returning();
 
-    if (updatedOrder.length === 0) {
-      return res.status(status.NOT_FOUND).json({ message: "Order not found" });
+    const newOrder = updatedOrder[0];
+
+    // 3️⃣ Send email ONLY if status changed
+    if (updateData.status && updateData.status !== prevOrder.status) {
+      const msg = {
+        to: newOrder.email || "",
+        subject: `Order #${newOrder.id} Status Updated`,
+        from: {
+          email: env.SENDGRID_SENDER_EMAIL!,
+          name: env.SENDGRID_SENDER_NAME!,
+        },
+        html: orderUpdateTemplate({
+          userName: newOrder.name,
+          orderId: newOrder.id,
+          orderDate: new Date(newOrder.createdAt!).toDateString(),
+          orderStatus: newOrder.status as
+            | "pending"
+            | "delivered"
+            | "cancelled"
+            | "preparing"
+            | "ready"
+            | "out_for_delivery",
+          orderType: newOrder.type,
+        }),
+
+        replyTo: env.SENDGRID_SENDER_EMAIL!,
+      };
+
+      await sendgridClient.send(msg);
     }
 
     res.status(status.OK).json({
@@ -407,10 +451,14 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
             product: {
               with: {
                 category: {
-                  columns: {
-                    id: true,
-                    name: true,
-                    volumeDiscountRules: true,
+                  with: {
+                    category: {
+                      columns: {
+                        id: true,
+                        name: true,
+                        volumeDiscountRules: true,
+                      },
+                    },
                   },
                 },
               },
@@ -422,8 +470,8 @@ export const getOrderByIdController = async (req: Request, res: Response) => {
             },
           },
         },
-        user: true, // optional: agar order ke user ka data bhi chahiye
-        branch: true, // optional: agar branch ka data bhi chahiye
+        user: true,
+        branch: true,
       },
     });
 
