@@ -13,7 +13,7 @@ import {
 import * as schema from "@/schema/schema";
 import { ac, admin, manager, rider } from "./permissions";
 import dotenv from "dotenv";
-import { sendgridClient } from "@/configs/mailgun.config";
+import { mailgunClient } from "@/configs/mailgun.config";
 import { resetPasswordTemplate, signupTemplate } from "@/utils/brevo";
 import { sendWatiTemplateMessage } from "@/utils/watiService";
 
@@ -68,23 +68,17 @@ export const auth = betterAuth({
         const resetLink = `${env.FRONTEND_DOMAIN}/reset-password?token=${token}`;
 
         console.log(user);
-        const msg = {
-          to: user.email,
-          from: {
-            email: env.SENDGRID_SENDER_EMAIL!,
-            name: env.SENDGRID_SENDER_NAME!,
-          },
+        await mailgunClient.messages.create(env.MAILGUN_DOMAIN, {
+          from: `${env.SENDGRID_SENDER_NAME} <${env.MAILGUN_SENDER_EMAIL}>`,
+          to: [user.email],
           subject: "Your Password Reset Request",
           html: resetPasswordTemplate({
             resetLink: resetLink,
             userName:
               user.name || (user.email ? user.email.split("@")[0] : "user"),
           }),
-          replyTo: env.SENDGRID_SENDER_EMAIL!,
-        };
-
-        await sendgridClient.send(msg);
-        console.log("Successfully sent password reset email via SendGrid.");
+        });
+        console.log("Successfully sent password reset email via Mailgun.");
       } catch (error) {
         console.error("Failed to send password reset email:", error);
         throw new Error("Failed to send password reset email.");
@@ -112,28 +106,19 @@ export const auth = betterAuth({
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
         try {
-          const msg = {
-            to: email,
-            from: {
-              email: env.SENDGRID_SENDER_EMAIL!,
-              name: env.SENDGRID_SENDER_NAME!,
-            },
+          await mailgunClient.messages.create(env.MAILGUN_DOMAIN, {
+            from: `${env.SENDGRID_SENDER_NAME} <${env.MAILGUN_SENDER_EMAIL}>`,
+            to: [email],
             subject: "Welcome! Please Verify Your Email",
             html: signupTemplate({
               verificationCode: otp,
               userName: email.split("@")[0],
               email: email,
             }),
-            replyTo: env.SENDGRID_SENDER_EMAIL!,
-          };
-
-          await sendgridClient.send(msg);
-          console.log("Successfully sent verification email via SendGrid.");
+          });
+          console.log("Successfully sent verification email via Mailgun.");
         } catch (error) {
           console.error("Failed to send verification email:", error);
-          // if (error?.response) {
-          //   console.error(error.response.body);
-          // }
           throw new Error("Failed to send verification email.");
         }
       },

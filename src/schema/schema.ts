@@ -183,6 +183,7 @@ export const category = pgTable("category", {
   description: varchar("description").notNull(),
   visibility: boolean("visibility").default(true),
   status: varchar("status", { enum: ["publish", "pending"] }),
+  showOnBakery: boolean("show_on_bakery").default(false),
   volumeDiscountRules: jsonb("volume_discount_rules"),
   ...timeStamps,
 });
@@ -451,6 +452,9 @@ export const branch = pgTable("branch", {
   orderType: varchar("order_type", {
     enum: ["both", "pickup", "delivery"],
   }).default("both"),
+
+  type: varchar("type", { enum: ["restaurant", "bakery"] }).default("restaurant"),
+
   // status: varchar("status", {
   //   enum: ["open", "closed"],
   // }).default("open"),
@@ -608,6 +612,7 @@ export const categoryInsertSchema = createInsertSchema(category, {
   description: z.string(),
   visibility: z.boolean(),
   status: z.enum(["publish", "pending"]),
+  showOnBakery: z.boolean(),
   volumeDiscountRules: volumeDiscountSchema,
 });
 

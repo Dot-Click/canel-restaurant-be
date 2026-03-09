@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+  import { Request, Response } from "express";
 import { database } from "../configs/connection.config";
 import {
   branch,

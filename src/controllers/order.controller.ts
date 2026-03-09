@@ -19,8 +19,9 @@ import cloudinary from "@/configs/cloudinary.config";
 import { endOfWeek, startOfWeek } from "date-fns";
 import crypto from "crypto";
 import { orderPlacementTemplate, orderUpdateTemplate } from "@/utils/brevo";
-import { sendgridClient } from "@/configs/mailgun.config";
+import { mailgunClient } from "@/configs/mailgun.config";
 import { env } from "@/utils/env.utils";
+import { sendWatiTemplateMessage } from "@/utils/watiService";
 
 export const insertController = async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -136,7 +137,7 @@ export const insertController = async (req: Request, res: Response) => {
 
       const price =
         parseFloat(item.variantPrice || "0") === 0 ||
-        item.variantPrice === "0.00"
+          item.variantPrice === "0.00"
           ? item.product.price
           : item.variantPrice;
 
@@ -213,19 +214,55 @@ export const insertController = async (req: Request, res: Response) => {
         items: emailItems,
       });
 
-      // 4. Send via SendGrid
-      // Ensure 'env.SENDGRID_FROM_EMAIL' is set in your .env file
-      const msg = {
-        to: currentUser.email,
-        from: env.SENDGRID_SENDER_EMAIL,
+      // 4. Send via Mailgun
+      mailgunClient.messages.create(env.MAILGUN_DOMAIN, {
+        to: [currentUser.email],
+        from: `${env.SENDGRID_SENDER_NAME} <${env.MAILGUN_SENDER_EMAIL}>`,
         subject: `Order Confirmation #${insertedOrder.id.substring(0, 8)}`,
         html: emailHtml,
-      };
+      }).catch((err) => {
+        logger.error("Failed to send Mailgun email:", err);
+      });
+    }
 
-      // Non-blocking send (catch error so it doesn't crash the response)
-      sendgridClient.send(msg).catch((err) => {
-        console.log(err.response.body);
-        logger.error("Failed to send SendGrid email:", err);
+    // --- 5. Send WhatsApp notification via WATI ---
+    if (insertedOrder.phoneNumber) {
+      // Calculate total amount
+      const totalAmount = itemsInCart.reduce((acc, item) => {
+        const price = parseFloat(
+          item.variantPrice || item.product?.price || "0"
+        );
+        const itemTotal = price * item.quantity;
+        const addonsTotal =
+          item.selectedAddons?.reduce((aAcc, a) => {
+            return aAcc + parseFloat(a.addonItem?.price || "0") * a.quantity;
+          }, 0) || 0;
+        return acc + itemTotal + addonsTotal;
+      }, 0);
+
+      // Create product summary
+      const productSummary = itemsInCart
+        .map((item) => {
+          const name = item.variantName
+            ? `${item.product?.name} (${item.variantName})`
+            : item.product?.name;
+          return `${name} (x${item.quantity})`;
+        })
+        .join(", ");
+
+      const sanitizedPhone = insertedOrder.phoneNumber.replace(/\D/g, "");
+
+      sendWatiTemplateMessage({
+        recipientPhoneNumber: sanitizedPhone,
+        templateName: "notification",
+        parameters: [
+          { name: "1", value: insertedOrder.name || "Customer" },
+          { name: "2", value: insertedOrder.id.substring(0, 8) },
+          { name: "3", value: productSummary },
+          { name: "4", value: totalAmount.toFixed(2) },
+        ],
+      }).catch((err) => {
+        logger.error("Failed to send WhatsApp notification via WATI:", err);
       });
     }
 
@@ -398,38 +435,52 @@ export const updateController = async (req: Request, res: Response) => {
 
     const newOrder = updatedOrder[0];
 
-    // 3️⃣ Send email ONLY if status changed
+    // 3️⃣ Send notifications ONLY if status changed
     if (updateData.status && updateData.status !== prevOrder.status) {
-      const msg = {
-        to: newOrder.email || "",
-        subject: `Order #${newOrder.id} Status Updated`,
-        from: {
-          email: env.SENDGRID_SENDER_EMAIL!,
-          name: env.SENDGRID_SENDER_NAME!,
-        },
-        html: orderUpdateTemplate({
-          userName: newOrder.name,
-          orderId: newOrder.id,
-          orderDate: new Date(newOrder.createdAt!).toDateString(),
-          orderStatus: newOrder.status as
-            | "pending"
-            | "delivered"
-            | "cancelled"
-            | "preparing"
-            | "ready"
-            | "out_for_delivery",
-          orderType: newOrder.type,
-        }),
+      // Send via Mailgun
+      await mailgunClient.messages
+        .create(env.MAILGUN_DOMAIN, {
+          to: [newOrder.email || ""],
+          subject: `Order #${newOrder.id} Status Updated`,
+          from: `${env.SENDGRID_SENDER_NAME} <${env.MAILGUN_SENDER_EMAIL}>`,
+          html: orderUpdateTemplate({
+            userName: newOrder.name,
+            orderId: newOrder.id,
+            orderDate: new Date(newOrder.createdAt!).toDateString(),
+            orderStatus: newOrder.status as
+              | "pending"
+              | "delivered"
+              | "cancelled"
+              | "preparing"
+              | "ready"
+              | "out_for_delivery",
+            orderType: newOrder.type,
+          }),
+        })
+        .catch((err) => {
+          logger.error("Failed to send Mailgun email update:", err);
+        });
 
-        replyTo: env.SENDGRID_SENDER_EMAIL!,
-      };
-
-      await sendgridClient.send(msg);
+      // Send WhatsApp notification via WATI
+      if (newOrder.phoneNumber) {
+        const sanitizedPhone = newOrder.phoneNumber.replace(/\D/g, "");
+        sendWatiTemplateMessage({
+          recipientPhoneNumber: sanitizedPhone,
+          templateName: "update_order",
+          parameters: [
+            { name: "1", value: newOrder.name || "Customer" },
+            { name: "2", value: newOrder.id.substring(0, 8) },
+            { name: "3", value: newOrder.status || "Actualizado" },
+          ],
+        }).catch((err) => {
+          logger.error("Failed to send WhatsApp status update via WATI:", err);
+        });
+      }
     }
 
     res.status(status.OK).json({
       message: "Pedido actualizado exitosamente",
-      data: updatedOrder[0],
+      data: newOrder,
     });
   } catch (error) {
     logger.error("No se pudo actualizar el pedido:", error);
@@ -862,6 +913,22 @@ export const updateStatusOrderController = async (
           .where(eq(orders.id, orderId))
           .returning();
 
+        // Send WhatsApp notification
+        if (updatedOrder.phoneNumber) {
+          const sanitizedPhone = updatedOrder.phoneNumber.replace(/\D/g, "");
+          sendWatiTemplateMessage({
+            recipientPhoneNumber: sanitizedPhone,
+            templateName: "update_order",
+            parameters: [
+              { name: "1", value: updatedOrder.name || "Customer" },
+              { name: "2", value: updatedOrder.id.substring(0, 8) },
+              { name: "3", value: "Aceptado por el repartidor" },
+            ],
+          }).catch((err) => {
+            logger.error("Failed to send WhatsApp status update via WATI:", err);
+          });
+        }
+
         return res.status(status.OK).json({
           message: "Order accepted and assigned successfully!",
           data: updatedOrder,
@@ -883,6 +950,22 @@ export const updateStatusOrderController = async (
           })
           .where(eq(orders.id, orderId))
           .returning();
+
+        // Send WhatsApp notification
+        if (deliveredOrder.phoneNumber) {
+          const sanitizedPhone = deliveredOrder.phoneNumber.replace(/\D/g, "");
+          sendWatiTemplateMessage({
+            recipientPhoneNumber: sanitizedPhone,
+            templateName: "update_order",
+            parameters: [
+              { name: "1", value: deliveredOrder.name || "Customer" },
+              { name: "2", value: deliveredOrder.id.substring(0, 8) },
+              { name: "3", value: "Entregado" },
+            ],
+          }).catch((err) => {
+            logger.error("Failed to send WhatsApp status update via WATI:", err);
+          });
+        }
 
         return res.status(status.OK).json({
           message: "Order marked as delivered successfully!",
