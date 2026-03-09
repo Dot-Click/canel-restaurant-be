@@ -46,10 +46,23 @@ const port = Number(process.env.PORT) || 3000;
 console.log("[SERVER STARTUP] FRONTEND_DOMAIN is:", env.FRONTEND_DOMAIN);
 
 const isProduction = app.get("env") === "production";
+const allowedOrigins = [
+  env.FRONTEND_DOMAIN,
+  "http://localhost:5173",
+  "http://localhost:5000",
+  "https://canel-restaurant-fe-production.up.railway.app",
+].filter((domain): domain is string => !!domain);
+
 const corsOptions: CorsOptions = {
-  origin:
-    env.FRONTEND_DOMAIN ||
-    "https://canel-restaurant-fe-production.up.railway.app",
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || isProduction === false) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   allowedHeaders: [
     "Content-Type",

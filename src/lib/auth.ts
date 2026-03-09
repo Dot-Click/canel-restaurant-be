@@ -26,7 +26,12 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  trustedOrigins: [env.FRONTEND_DOMAIN],
+  trustedOrigins: [
+    env.FRONTEND_DOMAIN,
+    "http://localhost:5173",
+    "http://localhost:5000",
+    "https://canel-restaurant-fe-production.up.railway.app",
+  ].filter((domain): domain is string => !!domain),
   secret: env.COOKIE_SECRET,
   session: {
     expiresIn: 60 * 60 * 24 * 7,

@@ -758,12 +758,21 @@ export const assignProductToBranch = async (req: Request, res: Response) => {
 };
 
 export const getCategoriesWithProducts = async (
-  _req: Request,
+  req: Request,
   res: Response
 ) => {
   try {
+    const { bakery } = req.query;
+
     const categoriesWithProducts = await database.query.category.findMany({
-      where: (categories, { eq }) => eq(categories.visibility, true),
+      where: (categories, { eq, and }) => {
+        const filters = [];
+        filters.push(eq(categories.visibility, true));
+        if (bakery !== undefined) {
+          filters.push(eq(categories.showOnBakery, bakery === "true"));
+        }
+        return and(...filters);
+      },
       with: {
         products: {
           with: {
@@ -772,6 +781,7 @@ export const getCategoriesWithProducts = async (
         },
       },
     });
+
 
     // Map junction rows -> plain products[]
     const result = categoriesWithProducts

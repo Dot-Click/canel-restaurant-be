@@ -1,4 +1,4 @@
-  import { Request, Response } from "express";
+import { Request, Response } from "express";
 import { database } from "../configs/connection.config";
 import {
   branch,
@@ -28,6 +28,7 @@ const apiBranchAddPayloadSchema = branchInsertSchema
         })
       )
       .optional(),
+    type: z.enum(["restaurant", "bakery"]).optional(),
   });
 
 const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
@@ -52,6 +53,7 @@ const apiBranchUpdatePayloadSchema = branchInsertSchema.partial().extend({
   status: z.enum(["open", "closed"]).optional(),
   cityId: z.string().optional(),
   manager: z.string().optional(),
+  type: z.enum(["restaurant", "bakery"]).optional(),
 });
 
 export const addBranchController = async (req: Request, res: Response) => {
@@ -141,13 +143,14 @@ export const addBranchController = async (req: Request, res: Response) => {
 };
 
 export const fetchAllBranchesController = async (
-  _req: Request,
+  req: Request,
   res: Response
 ) => {
   try {
-    // const { wati } = req.query;
+    const { type } = req.query;
 
     const branches = await database.query.branch.findMany({
+      where: type ? eq(branch.type, type as any) : undefined,
       with: {
         city: { columns: { name: true } },
         manager: { columns: { id: true, fullName: true, email: true } },

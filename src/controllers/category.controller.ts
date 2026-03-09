@@ -78,16 +78,21 @@ export const deleteController = async (req: Request, res: Response) => {
 
 export const fetchController = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const { id, bakery } = req.query;
 
     let categories;
 
     if (id) {
       categories = await database.query.category.findFirst({
-        where: (category, { eq }) => eq(category.id, id),
+        where: (category, { eq }) => eq(category.id, id as string),
       });
     } else {
-      categories = await database.query.category.findMany();
+      categories = await database.query.category.findMany({
+        where:
+          bakery !== undefined
+            ? (category, { eq }) => eq(category.showOnBakery, bakery === "true")
+            : undefined,
+      });
     }
 
     res.status(status.OK).json({
@@ -199,7 +204,12 @@ export const insertBulkCategoriesController = async (
         );
       }
 
-      return { name, description };
+      const showOnBakery =
+        row["Panadería"]?.toLowerCase() === "true" ||
+        row["Bakery"]?.toLowerCase() === "true" ||
+        row["showOnBakery"]?.toLowerCase() === "true";
+
+      return { name, description, showOnBakery };
     });
 
     // STEP 4: Insert into DB

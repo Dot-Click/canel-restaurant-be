@@ -441,10 +441,8 @@ export const branch = pgTable("branch", {
   }),
   cityId: foreignkeyRef("city_id", () => city.id, {
     onDelete: "set null",
-  }).notNull(), //separate city table
-  // state: varchar("state"),
+  }).notNull(),
   areas: json("areas").$type<string[]>(),
-
   deliveryRates:
     json("delivery_rates").$type<
       { min: number; max: number; price: number }[]
@@ -452,12 +450,7 @@ export const branch = pgTable("branch", {
   orderType: varchar("order_type", {
     enum: ["both", "pickup", "delivery"],
   }).default("both"),
-
   type: varchar("type", { enum: ["restaurant", "bakery"] }).default("restaurant"),
-
-  // status: varchar("status", {
-  //   enum: ["open", "closed"],
-  // }).default("open"),
   isPaused: boolean("is_paused").default(false).notNull(),
   pauseReason: text("pause_reason"),
   ...timeStamps,
@@ -610,9 +603,9 @@ const volumeDiscountSchema = z
 export const categoryInsertSchema = createInsertSchema(category, {
   name: z.string().min(1, "Name is required"),
   description: z.string(),
-  visibility: z.boolean(),
-  status: z.enum(["publish", "pending"]),
-  showOnBakery: z.boolean(),
+  visibility: z.boolean().optional(),
+  status: z.enum(["publish", "pending"]).optional(),
+  showOnBakery: z.boolean().optional(),
   volumeDiscountRules: volumeDiscountSchema,
 });
 
