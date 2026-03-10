@@ -50,6 +50,7 @@ const allowedOrigins = [
   env.FRONTEND_DOMAIN,
   "http://localhost:5173",
   "http://localhost:5000",
+  "https://canel-bakery-fe.vercel.app",
   "https://canel-restaurant-fe-production.up.railway.app",
 ].filter((domain): domain is string => !!domain);
 
