@@ -243,6 +243,7 @@ export const orders = pgTable("orders", {
   pickedUpAt: timestamp("picked_up_at"),
   deliveredAt: timestamp("delivered_at"),
   cancelledAt: timestamp("cancelled_at"),
+  distance: numeric("distance", { precision: 10, scale: 2 }).default("0.00"),
   ...timeStamps,
 });
 
@@ -293,6 +294,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   branch: one(branch, {
     fields: [orders.branchId],
     references: [branch.id],
+  }),
+  rider: one(users, {
+    fields: [orders.riderId],
+    references: [users.id],
   }),
 }));
 
@@ -498,6 +503,15 @@ export const branding = pgTable("branding", {
   instagram: varchar("instagram"),
   facebook: varchar("facebook"),
   mainSection: varchar("main_section"),
+});
+
+export const reportIntervals = pgTable("report_intervals", {
+  id: uuid("id").primaryKey(),
+  label: varchar("label").notNull(),
+  value: varchar("value").notNull(), // e.g. "last_7_days"
+  days: integer("days"), // numeric days if applicable
+  isActive: boolean("is_active").default(true),
+  ...timeStamps,
 });
 
 // Branch Schedules

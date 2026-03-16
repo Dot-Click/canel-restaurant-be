@@ -35,6 +35,7 @@ import { smsRoute } from "./routes/sms.route";
 import { uniqueRoute, watiRoute } from "./routes/wati.route";
 import { paymentRoutes } from "./routes/payment.route";
 import { currencyRoutes } from "./routes/currency.route";
+import { reportRoutes } from "./routes/report.route";
 
 config();
 
@@ -146,6 +147,7 @@ app.use("/api/broadcast/", smsRoute);
 app.use("/api/payment/", paymentRoutes);
 
 app.use("/api/currency/", currencyRoutes);
+app.use("/api/report/", reportRoutes);
 
 app.use(unknownRoutes);
 

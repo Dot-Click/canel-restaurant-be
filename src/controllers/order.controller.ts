@@ -1411,3 +1411,112 @@ export const fetchNewVsRecurringOrdersController = async (
     });
   }
 };
+
+/**
+ * Fetch driver reports with filters: date range, riderId
+ */
+export const getDriverReportsController = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, riderId, minDistance, maxDistance, minEarnings, maxEarnings } = req.query;
+
+    const filters: any[] = [eq(orders.status, "delivered")];
+
+    if (startDate) {
+      filters.push(gte(orders.deliveredAt, new Date(startDate as string)));
+    }
+    if (endDate) {
+      filters.push(lte(orders.deliveredAt, new Date(endDate as string)));
+    }
+    if (riderId && riderId !== "all") {
+      filters.push(eq(orders.riderId, riderId as string));
+    }
+    if (minDistance) {
+      filters.push(gte(orders.distance, minDistance as string));
+    }
+    if (maxDistance) {
+      filters.push(lte(orders.distance, maxDistance as string));
+    }
+
+    let reportData = await database.query.orders.findMany({
+      where: and(...filters),
+      with: {
+        rider: {
+          columns: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            profilePic: true,
+          }
+        },
+        orderItems: {
+          with: {
+            orderAddons: {
+              with: {
+                addonItem: true
+              }
+            }
+          }
+        },
+        branch: true,
+      },
+      orderBy: [desc(orders.deliveredAt)],
+    });
+
+    // Post-filtering for earnings if needed (since earnings are calculated from items)
+    if (minEarnings || maxEarnings) {
+      reportData = reportData.filter(order => {
+        const orderItemsTotal = order.orderItems.reduce((sum, item) => {
+          const itemBase = parseFloat(item.price) * item.quantity;
+          const addonsTotal = (item.orderAddons || []).reduce((aSum, a) => {
+            return aSum + (parseFloat(a.price) * a.quantity);
+          }, 0);
+          return sum + itemBase + addonsTotal;
+        }, 0);
+        const tip = parseFloat(order.tip || "0");
+        const total = orderItemsTotal + tip;
+        
+        let match = true;
+        if (minEarnings) match = match && total >= parseFloat(minEarnings as string);
+        if (maxEarnings) match = match && total <= parseFloat(maxEarnings as string);
+        return match;
+      });
+    }
+
+    const summary = reportData.reduce((acc, order) => {
+      const orderItemsTotal = order.orderItems.reduce((sum, item) => {
+        const itemBase = parseFloat(item.price) * item.quantity;
+        const addonsTotal = (item.orderAddons || []).reduce((aSum, a) => {
+          return aSum + (parseFloat(a.price) * a.quantity);
+        }, 0);
+        return sum + itemBase + addonsTotal;
+      }, 0);
+
+      const tip = parseFloat(order.tip || "0");
+      acc.totalEarned += orderItemsTotal + tip;
+      acc.totalDistance += parseFloat(order.distance || "0");
+      acc.totalOrders += 1;
+      return acc;
+    }, { totalEarned: 0, totalDistance: 0, totalOrders: 0 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Driver reports fetched successfully.",
+      data: {
+        summary: {
+          totalEarned: summary.totalEarned.toFixed(2),
+          totalDistance: summary.totalDistance.toFixed(2),
+          totalOrders: summary.totalOrders,
+        },
+        orders: reportData
+      }
+    });
+  } catch (error) {
+    logger.error("Error fetching driver reports:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching driver reports.",
+      error: (error as Error).message
+    });
+  }
+};

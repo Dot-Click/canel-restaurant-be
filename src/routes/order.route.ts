@@ -17,6 +17,7 @@ import {
   // fetchRidersEarnedMoney,
   fetchRiderEarnedMoneyById,
   // updateRiderOrderDelivery,
+  getDriverReportsController,
 } from "@/controllers/order.controller";
 import {
   setBranchPauseStatus,
@@ -111,6 +112,13 @@ orderRoutes.get(
   "/new-vs-recurring",
   protectRoute,
   fetchNewVsRecurringOrdersController
+);
+
+orderRoutes.get(
+  "/driver-reports",
+  protectRoute,
+  checkPermission("view staff"), // Or a specific report permission if exists
+  getDriverReportsController
 );
 
 export { orderRoutes };
