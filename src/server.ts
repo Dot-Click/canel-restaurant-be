@@ -36,6 +36,7 @@ import { uniqueRoute, watiRoute } from "./routes/wati.route";
 import { paymentRoutes } from "./routes/payment.route";
 import { currencyRoutes } from "./routes/currency.route";
 import { reportRoutes } from "./routes/report.route";
+import { fcmRoutes } from "./routes/fcm.route";
 
 config();
 
@@ -145,6 +146,7 @@ app.use("/api/schedule/", scheduleRoute);
 app.use("/api/users/", userRoute);
 app.use("/api/broadcast/", smsRoute);
 app.use("/api/payment/", paymentRoutes);
+app.use("/api/fcm/", fcmRoutes); // Register FCM routes
 
 app.use("/api/currency/", currencyRoutes);
 app.use("/api/report/", reportRoutes);

@@ -67,11 +67,29 @@ export const users = pgTable("users", {
   phoneNumberVerified: boolean("phone_number_verified"),
 });
 
+export const fcmTokens = pgTable("fcm_tokens", {
+  id: uuid().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  deviceType: text("device_type"),
+  ...timeStamps,
+});
+
 export const usersRelations = relations(users, ({ many, one }) => ({
   orders: many(orders),
+  fcmTokens: many(fcmTokens),
   branch: one(branch, {
     fields: [users.id],
     references: [branch.manager],
+  }),
+}));
+
+export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [fcmTokens.userId],
+    references: [users.id],
   }),
 }));
 

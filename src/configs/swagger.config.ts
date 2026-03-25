@@ -18,10 +18,19 @@ const options: Options = {
     host: "localhost",
     consumes: ["application/json"],
     produces: ["application/json"],
-    tags: [{ name: "Authentication" }],
+    tags: [{ name: "Authentication" }, { name: "Notifications" }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
   },
 
-  apis: [route("auth.routes.ts"), route("example.routes.ts")],
+  apis: [route("auth.routes.ts"), route("example.routes.ts"), route("fcm.route.ts")],
 };
 
 export const swaggerSpec = swaggerJSDOC(options);
