@@ -262,6 +262,10 @@ export const orders = pgTable("orders", {
   deliveredAt: timestamp("delivered_at"),
   cancelledAt: timestamp("cancelled_at"),
   distance: numeric("distance", { precision: 10, scale: 2 }).default("0.00"),
+  requiresChange: varchar("requires_change"),
+  changePhone: varchar("change_phone"),
+  changeId: varchar("change_id"),
+  changeBank: varchar("change_bank"),
   ...timeStamps,
 });
 
