@@ -1,0 +1,85 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "x-ibm-name": "api-web-payment-button",
+    "title": "API de Botón de Pagos Web",
+    "version": "1.0.0",
+    "description": "API de Botón de Pagos Web.",
+    "contact": {
+      "name": "Soporte para los API de Mercantil Banco C.A.",
+      "email": "apisupport@mercantilbanco.com",
+      "url": "https://www.mercantilbanco.com/mercprod/apiportal/support/index.html"
+    }
+  },
+  "schemes": [
+    "https"
+  ],
+  "host": "gw.3be3-22336bfa.us-east.apiconnect.appdomain.cloud",
+  "basePath": "/mercantil-banco/prod/v1/payment",
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {},
+  "x-ibm-configuration": {
+    "testable": true,
+    "enforced": true,
+    "cors": {
+      "enabled": true
+    },
+    "phase": "realized",
+    "servers": [
+      {
+        "url": "https://gw.3be3-22336bfa.us-east.apiconnect.appdomain.cloud/mercantil-banco/prod/v1/payment",
+        "description": "",
+        "type": [
+          "production",
+          "development"
+        ]
+      },
+      {
+        "url": "https://apimbu.mercantilbanco.com/mercantil-banco/prod/v1/payment",
+        "description": "",
+        "type": [
+          "production",
+          "development"
+        ]
+      },
+      {
+        "url": "https://apimbu.mercantilbanco.com/mercantil-banco/prod/v1/payment",
+        "description": "",
+        "type": [
+          "production",
+          "development"
+        ]
+      }
+    ]
+  },
+  "paths": {
+    "/api": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "200 OK"
+          },
+          "400": {
+            "description": "400 Bad Request"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "query",
+            "description": "Parametro para indicar el aplicativo",
+            "required": false,
+            "type": "string"
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {},
+  "tags": []
+}

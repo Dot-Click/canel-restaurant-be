@@ -245,7 +245,7 @@ export const orders = pgTable("orders", {
   email: varchar("email"),
   changeRequest: varchar("change_request"),
   type: varchar("type", { enum: ["delivery", "pickup"] }).default("delivery"),
-  paymentType: varchar("paymentType", { enum: ["cash", "bolivars", "zelle"] }),
+  paymentType: varchar("paymentType", { enum: ["cash", "bolivars", "zelle", "mercantil"] }),
   deliveryImage: varchar("delivery_image"),
   tip: numeric("tip", { precision: 10, scale: 2 }).default("0.00"),
   userId: foreignkeyRef("user_id", () => users.id, { onDelete: "cascade" }),

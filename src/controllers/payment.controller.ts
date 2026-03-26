@@ -2,6 +2,9 @@ import fetch from "node-fetch";
 import { encrypt } from "../lib/crypto";
 import { Request, Response } from "express";
 import { env } from "@/utils/env.utils";
+import { database } from "@/configs/connection.config";
+import { orders, currencyRates } from "@/schema/schema";
+import { eq, desc } from "drizzle-orm";
 
 const GETAUTH_URL =
   "https://apimbu.mercantilbanco.com/mercantil-banco/sandbox/v1/payment/getauth";
@@ -129,5 +132,97 @@ export const getAuthTDC = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ error: "Internal error", details: err.message });
+  }
+};
+
+export const createMercantilButton = async (req: Request, res: Response) => {
+  try {
+    const { orderId, shippingFee } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: "Order ID is required" });
+    }
+
+    const order = await database.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        orderItems: {
+          with: {
+            orderAddons: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Calculate total in USD (REF)
+    let totalUsd = 0;
+    for (const item of order.orderItems) {
+      const itemPrice = parseFloat(item.price as string);
+      totalUsd += itemPrice * item.quantity;
+
+      if (item.orderAddons) {
+        for (const addon of item.orderAddons) {
+          const addonPrice = parseFloat(addon.price as string);
+          totalUsd += addonPrice * addon.quantity;
+        }
+      }
+    }
+
+    // Add shipping fee
+    const finalShippingFee = shippingFee !== undefined ? parseFloat(shippingFee) : 0;
+    totalUsd += finalShippingFee;
+
+    // Get current VES rate
+    const [rateRow] = await database
+      .select()
+      .from(currencyRates)
+      .orderBy(desc(currencyRates.createdAt))
+      .limit(1);
+
+    const rate = rateRow ? parseFloat(rateRow.rate) : 54.0; // Fallback rate
+    const totalVes = totalUsd * rate;
+
+    const today = new Date().toISOString().split("T")[0];
+    const payload = {
+      amount: parseFloat(totalVes.toFixed(2)),
+      customerName: order.name || "Cliente",
+      returnUrl: `${env.FRONTEND_DOMAIN}/place-order/${order.id}`,
+      merchantId: env.MERCANTILE_MERCHANT_ID,
+      invoiceNumber: {
+        number: order.id.slice(0, 8),
+        invoiceCreationDate: today,
+        invoiceCancelledDate: today,
+      },
+      contract: {
+        contractNumber: order.id.slice(0, 8),
+        contractDate: today,
+      },
+      trxType: "compra",
+      paymentConcepts: ["tdd", "tdc", "c2p"],
+      currency: "ves",
+    };
+
+    const encryptedData = encrypt(
+      JSON.stringify(payload),
+      env.MERCANTILE_SECRET_KEY // Still using secret key for now, but I'll try 31 first
+    );
+
+    // Using the domain that responded to probing (botondepagos.mercantilbanco.com)
+    // apimbu triggers WAF errors for web redirection.
+    const baseUrl = "https://botondepagos.mercantilbanco.com/mercantil/botondepagos";
+
+    return res.json({
+      url: baseUrl,
+      merchantid: env.MERCANTILE_MERCHANT_ID,
+      integratorid: "31", // Testing with 31 as per documentation
+      transactiondata: encryptedData,
+    });
+  } catch (error: any) {
+    console.error("createMercantilButton error:", error);
+    return res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };

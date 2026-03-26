@@ -35,6 +35,7 @@ const schemaObject = z.object({
   MERCANTILE_ENCRYPTION_KEY: z.string(),
   WATI_WHATSAPP_ENDPOINT: z.string(),
   WATI_WHATSAPP_ACCESS_TOKEN: z.string(),
+  MERCANTILE_BOTON_URL: z.string().url(),
 });
 
 const envSchema = schemaObject.safeParse(process.env);
