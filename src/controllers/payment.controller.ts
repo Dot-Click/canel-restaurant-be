@@ -213,7 +213,7 @@ export const createMercantilButton = async (req: Request, res: Response) => {
 
     // Using the domain that responded to probing (botondepagos.mercantilbanco.com)
     // apimbu triggers WAF errors for web redirection.
-    const baseUrl = "https://botondepagos.mercantilbanco.com/mercantil/botondepagos";
+    const baseUrl = "https://gw.3be3-22336bfa.us-east.apiconnect.appdomain.cloud/mercantil-banco/prod/v1/payment";
 
     return res.json({
       url: baseUrl,
