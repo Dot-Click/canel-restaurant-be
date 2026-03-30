@@ -13,6 +13,8 @@ import { createId } from "@paralleldrive/cuid2";
 type ProductRow = typeof products.$inferSelect;
 // type CategoryRow = typeof category.$inferSelect;
 
+const normalizePhone = (p: string) => p.replace(/\D/g, "");
+
 export const getBranchesForWati = async (_req: Request, res: Response) => {
   try {
     // 1. Fetch all branches from the database
@@ -190,10 +192,12 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
 
     const customerCoords = parseLocation(location);
 
+    const cleanPhone = normalizePhone(phoneNumber);
+
     const newOrder = await database.transaction(async (tx) => {
 
       let userRecord = await tx.query.users.findFirst({
-        where: eq(users.phoneNumber, phoneNumber),
+        where: eq(users.phoneNumber, cleanPhone),
       });
 
       if (!userRecord) {
@@ -203,7 +207,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
           fullName: name,
           email: email,
           phoneNumberVerified: true,
-          phoneNumber: phoneNumber,
+          phoneNumber: cleanPhone,
           role: "user",
         }).returning();
         userRecord = newUser;
@@ -780,14 +784,13 @@ export const extractLocation = async (req: Request, res: Response) => {
   }
 };
 
-
-
 export const getRecentOrdersMenu = async (req: Request, res: Response) => {
   try {
-    const { phone } = req.params;
+    // const { phone } = req.params;
+    const cleanPhone = normalizePhone(req.params.phone);
 
     const userRecord = await database.query.users.findFirst({
-      where: eq(users.phoneNumber, phone),
+      where: eq(users.phoneNumber, cleanPhone),
     });
 
     if (!userRecord) {
@@ -828,12 +831,15 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
 // 2. Process the selection by looking up the User's linked orders
 export const selectRepeatOrder = async (req: Request, res: Response) => {
   try {
-    const { phone, selection } = req.body;
+    const { selection } = req.body;
+
+    const cleanPhone = normalizePhone(req.body.phone)
+
     const orderIndex = Number(selection) - 1;
 
     // A) Find the User record
     const userRecord = await database.query.users.findFirst({
-      where: eq(users.phoneNumber, phone),
+      where: eq(users.phoneNumber, cleanPhone),
     });
 
     if (!userRecord) return res.status(404).json({ message: "Usuario no encontrado" });
