@@ -21,7 +21,7 @@ const uniqueRoute = Router();
 watiRoute.get("/fetch-branches", getBranchesForWati);
 watiRoute.post("/fetch-menu/:categoryName", getMenuForWati);
 watiRoute.post("/place-order", placeOrderForWati);
-watiRoute.get("/recent-orders/:phoneNumber", getRecentOrdersMenu);
+watiRoute.get("/recent-orders/:phone", getRecentOrdersMenu);
 watiRoute.post("/select-repeat-order", selectRepeatOrder);
 watiRoute.get("/fetch-category", fetchCategoryController);
 
