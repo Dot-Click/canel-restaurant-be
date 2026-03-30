@@ -6,6 +6,8 @@ import {
   getBranchesForWati,
   getMenuForWati,
   placeOrderForWati,
+  getRecentOrdersMenu,
+  selectRepeatOrder,
   // watiIncomingWebhook,
 } from "@/controllers/wati.controller";
 import { downloadWatiMedia } from "@/utils/watiService";
@@ -19,6 +21,8 @@ const uniqueRoute = Router();
 watiRoute.get("/fetch-branches", getBranchesForWati);
 watiRoute.post("/fetch-menu/:categoryName", getMenuForWati);
 watiRoute.post("/place-order", placeOrderForWati);
+watiRoute.get("/recent-orders/:phoneNumber", getRecentOrdersMenu);
+watiRoute.post("/select-repeat-order", selectRepeatOrder);
 watiRoute.get("/fetch-category", fetchCategoryController);
 
 uniqueRoute.post(

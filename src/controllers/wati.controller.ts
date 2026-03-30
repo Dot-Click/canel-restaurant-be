@@ -1,13 +1,14 @@
 import { Request, Response } from "express";
-import { eq, isNull, or } from "drizzle-orm";
+import { desc, eq, isNull, or } from "drizzle-orm";
 import { database } from "@/configs/connection.config";
 import { logger } from "@/utils/logger.util";
-import { orderItems, orders, products } from "@/schema/schema";
+import { orderItems, orders, productCategories, products, users } from "@/schema/schema";
 import status from "http-status";
 import { calculateDeliveryFee } from "@/helper/calculate";
 import { distanceInKmBetweenCoordinates } from "@/helper/convertcord";
 import axios from "axios";
 import { env } from "@/utils/env.utils";
+import { createId } from "@paralleldrive/cuid2";
 
 type ProductRow = typeof products.$inferSelect;
 // type CategoryRow = typeof category.$inferSelect;
@@ -146,6 +147,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       itemCart, // e.g. "Burgers:1:2, Drinks:3:1"
       name,
       location,
+      phoneNumber,
       phone,
       email,
       paymentType,
@@ -160,6 +162,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       !itemCart ||
       !name ||
       !phone ||
+      !phoneNumber ||
       !email ||
       !type ||
       !location
@@ -188,6 +191,25 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
     const customerCoords = parseLocation(location);
 
     const newOrder = await database.transaction(async (tx) => {
+
+      let userRecord = await tx.query.users.findFirst({
+        where: eq(users.phoneNumber, phoneNumber),
+      });
+
+      if (!userRecord) {
+        // Create a new user if they don't exist
+        const [newUser] = await tx.insert(users).values({
+          id: createId(),
+          fullName: name,
+          email: email,
+          phoneNumberVerified: true,
+          phoneNumber: phoneNumber,
+          role: "user",
+        }).returning();
+        userRecord = newUser;
+      }
+
+
       // 0) Branch
       const allBranches = await tx.query.branch.findMany({
         orderBy: (b, { asc }) => [asc(b.name)],
@@ -234,6 +256,7 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
       const [order] = await tx
         .insert(orders)
         .values({
+          userId: userRecord?.id,
           branchId: selectedBranch.id,
           status: "pending",
           source: "Wati Chatbot",
@@ -754,5 +777,107 @@ export const extractLocation = async (req: Request, res: Response) => {
     return res
       .status(status.INTERNAL_SERVER_ERROR)
       .json({ error: "Internal server error" });
+  }
+};
+
+
+
+export const getRecentOrdersMenu = async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.params;
+
+    const userRecord = await database.query.users.findFirst({
+      where: eq(users.phoneNumber, phone),
+    });
+
+    if (!userRecord) {
+      return res.status(200).json({
+        exists: false,
+        menu: "No tienes un perfil registrado o pedidos anteriores."
+      });
+    }
+
+    // B) Fetch last 3 orders specifically linked to this User's ID
+    const lastOrders = await database.query.orders.findMany({
+      where: eq(orders.userId, userRecord.id),
+      orderBy: [desc(orders.createdAt)],
+      limit: 3,
+      with: { orderItems: true }
+    });
+
+    if (!lastOrders.length) {
+      return res.status(200).json({
+        exists: false,
+        menu: "No tienes pedidos anteriores registrados en tu cuenta."
+      });
+    }
+
+    let menuText = "Selecciona el pedido que deseas repetir (Responde 1, 2 o 3):\n\n";
+    lastOrders.forEach((order, i) => {
+      const itemsText = order.orderItems.map(oi => oi.productName).join(", ").substring(0, 50);
+      menuText += `${i + 1}. Pedido del ${order.createdAt?.toLocaleDateString()}: ${itemsText}...\n`;
+    });
+
+    return res.status(200).json({ exists: true, menu: menuText });
+  } catch (error) {
+    logger.error(`Error in getRecentOrdersMenu: ${error}`);
+    return res.status(500).json({ message: "Error fetching orders" });
+  }
+};
+
+// 2. Process the selection by looking up the User's linked orders
+export const selectRepeatOrder = async (req: Request, res: Response) => {
+  try {
+    const { phone, selection } = req.body;
+    const orderIndex = Number(selection) - 1;
+
+    // A) Find the User record
+    const userRecord = await database.query.users.findFirst({
+      where: eq(users.phoneNumber, phone),
+    });
+
+    if (!userRecord) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    // B) Find orders linked to this User's ID
+    const userOrders = await database.query.orders.findMany({
+      where: eq(orders.userId, userRecord.id),
+      orderBy: [desc(orders.createdAt)],
+      limit: 3,
+      with: { orderItems: true }
+    });
+
+    const targetOrder = userOrders[orderIndex];
+    if (!targetOrder) return res.status(404).json({ message: "Pedido no encontrado" });
+
+    // C) Reconstruct itemCart: "CategoryName:ItemIndex:Qty"
+    const cartParts: string[] = [];
+
+    for (const item of targetOrder.orderItems) {
+      const productMap = await database.query.productCategories.findFirst({
+        where: eq(productCategories.productId, item.productId!),
+        with: { category: true }
+      });
+
+      if (productMap) {
+        // Find alphabetical index in that category
+        const allInCat = await database.query.products.findMany({
+          where: eq(products.branchId, targetOrder.branchId as string),
+          orderBy: [products.name]
+        });
+        const index = allInCat.findIndex(p => p.id === item.productId) + 1;
+
+        if (index > 0) {
+          cartParts.push(`${productMap.category.name}:${index}:${item.quantity}`);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      itemCart: cartParts.join(", "),
+      summary: targetOrder.orderItems.map(oi => `• ${oi.productName} x${oi.quantity}`).join("\n")
+    });
+  } catch (error) {
+    logger.error(`Error in selectRepeatOrder: ${error}`);
+    return res.status(500).json({ message: "Error processing selection" });
   }
 };
