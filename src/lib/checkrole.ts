@@ -77,7 +77,30 @@ type User = typeof users.$inferSelect;
 
 export const hasPermission = (permission: Permissions, user: User) => {
   if (user.role === "admin") return true;
-  console.log(user?.permissions?.includes(permission));
+
+  const userRole = user.role?.toLowerCase();
+
+  // Subadmin: Full visibility only
+  if (userRole === "subadmin") {
+    if (permission.startsWith("view")) return true;
+    return false;
+  }
+
+  // Manager: View everything + specific updates
+  if (userRole === "manager") {
+    if (permission.startsWith("view")) return true;
+    if (permission === "update order") return true;
+    if (permission === "update product") return true; // logic in controller will restrict fields
+    return false;
+  }
+
+  // Marketing: Product management visibility and updates
+  if (userRole === "marketing") {
+    if (permission.startsWith("view")) return true;
+    if (permission.includes("product") && (permission.startsWith("view") || permission.startsWith("update"))) return true;
+    return false;
+  }
+
   return user?.permissions?.includes(permission);
 };
 

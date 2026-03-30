@@ -8,6 +8,7 @@ import {
   productInsertSchema,
   products,
   productUpdateSchema,
+  branch,
 } from "@/schema/schema";
 import formidable from "formidable";
 import { extractFormFields } from "@/utils/formdata.util";
@@ -591,7 +592,64 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     // -------------------- PERFORM UPDATE --------------------
+    const userRole = req.user?.role?.toLowerCase();
+    const userId = req.user?.id;
+
     const updated = await database.transaction(async (tx) => {
+      // 1. Fetch current product and its branchId
+      const currentProduct = await tx.query.products.findFirst({
+        where: eq(products.id, id),
+      });
+
+      if (!currentProduct) return [];
+
+      // 2. Role-based restrictions
+      if (userRole === "manager") {
+        // Managers can ONLY update availability and ONLY for their own branch
+        const managerBranch = await tx.query.branch.findFirst({
+          where: eq(branch.manager, userId!),
+        });
+
+        if (!managerBranch || currentProduct.branchId !== managerBranch.id) {
+          throw new Error("Solo puedes gestionar productos de tu propia sucursal.");
+        }
+
+        // Restrict fields for manager
+        const allowedFieldsForManager: (keyof typeof validatedData)[] = ["availability"];
+        const restrictedPayload: Partial<typeof products.$inferInsert> = {};
+        
+        allowedFieldsForManager.forEach(field => {
+          if (validatedData[field] !== undefined) {
+             (restrictedPayload as any)[field] = validatedData[field];
+          }
+        });
+
+        validatedData = restrictedPayload;
+        // Don't sync categories if manager is updating
+        categoryIds = undefined;
+      } else if (userRole === "marketing") {
+        // Marketing can update images, description, price, and name
+        const allowedFieldsForMarketing: (keyof typeof validatedData)[] = [
+          "name", "description", "price", "image", "discount", "status"
+        ];
+        const restrictedPayload: Partial<typeof products.$inferInsert> = {};
+
+        allowedFieldsForMarketing.forEach(field => {
+          if (validatedData[field] !== undefined) {
+             (restrictedPayload as any)[field] = validatedData[field];
+          }
+        });
+        validatedData = restrictedPayload;
+        // Don't sync categories if marketing is updating
+        categoryIds = undefined;
+      } else if (userRole === "subadmin") {
+        throw new Error("Los subadministradores no tienen permiso para editar productos.");
+      }
+
+      if (Object.keys(validatedData).length === 0 && !categoryIds) {
+        return [currentProduct]; // No real changes to apply
+      }
+
       const [p] = await tx
         .update(products)
         .set(validatedData)

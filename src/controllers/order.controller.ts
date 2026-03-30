@@ -425,6 +425,26 @@ export const updateController = async (req: Request, res: Response) => {
     }
 
     const prevOrder = existingOrder[0];
+    const userRole = req.user?.role?.toLowerCase();
+    const userId = req.user?.id;
+
+    if (userRole === "manager") {
+      const managerBranch = await database.query.branch.findFirst({
+        where: eq(branch.manager, userId!),
+      });
+
+      if (!managerBranch || prevOrder.branchId !== managerBranch.id) {
+        return res.status(status.FORBIDDEN).json({
+          message:
+            "No tienes permiso para actualizar pedidos de otras sucursales.",
+        });
+      }
+    } else if (userRole === "subadmin") {
+      return res.status(status.FORBIDDEN).json({
+        message:
+          "Los subadministradores no tienen permiso para actualizar pedidos.",
+      });
+    }
 
     // 2️⃣ Update order
     const updatedOrder = await database
@@ -577,11 +597,26 @@ export const createPosOrderController = async (req: Request, res: Response) => {
         }
       }
 
-      // 3. Create the order and link it to the CUSTOMER's ID.
+      // 1. Determine the branch for this order
+      let finalBranchId = formData.branchId;
+      const userRole = req.user?.role;
+
+      if (userRole === "manager") {
+        const managerBranch = await tx.query.branch.findFirst({
+          where: eq(branch.manager, adminUserId),
+        });
+
+        if (!managerBranch) {
+          throw new Error("No hay ninguna sucursal asignada a este gerente.");
+        }
+        finalBranchId = managerBranch.id;
+      }
+
       const [insertedOrder] = await tx
         .insert(orders)
         .values({
           ...formData,
+          branchId: finalBranchId,
           userId: customerUserId,
         })
         .returning();
@@ -660,6 +695,30 @@ export const assignRiderController = async (req: Request, res: Response) => {
         .json({ message: "A valid rider with that ID was not found." });
     }
 
+    const orderToUpdate = await database.query.orders.findFirst({
+      where: eq(orders.id, id),
+    });
+
+    if (!orderToUpdate) {
+      return res.status(status.NOT_FOUND).json({ message: "Order not found." });
+    }
+
+    const userRole = req.user?.role?.toLowerCase();
+    const userId = req.user?.id;
+
+    if (userRole === "manager") {
+      const managerBranch = await database.query.branch.findFirst({
+        where: eq(branch.manager, userId!),
+      });
+
+      if (!managerBranch || orderToUpdate.branchId !== managerBranch.id) {
+        return res.status(status.FORBIDDEN).json({
+          message:
+            "No tienes permiso para asignar repartidores a pedidos de otras sucursales.",
+        });
+      }
+    }
+
     // Update the order, setting the new riderId
     const updatedOrder = await database
       .update(orders)
@@ -667,13 +726,11 @@ export const assignRiderController = async (req: Request, res: Response) => {
       .where(eq(orders.id, id))
       .returning();
 
-    if (updatedOrder.length === 0) {
-      return res.status(status.NOT_FOUND).json({ message: "Order not found." });
-    }
+    const orderToReturn = updatedOrder[0];
 
     res.status(status.OK).json({
       message: "Orden asignada exitosamente al ciclista.",
-      data: updatedOrder[0],
+      data: orderToReturn,
     });
   } catch (error) {
     logger.error("Failed to assign rider to order:", error);
