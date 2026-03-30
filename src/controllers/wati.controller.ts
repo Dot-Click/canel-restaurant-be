@@ -821,10 +821,10 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
       menuText += `${i + 1}. Pedido del ${order.createdAt?.toLocaleDateString()}: ${itemsText}...\n`;
     });
 
-    return res.status(200).json({ exists: true, menu: menuText });
+    return res.status(200).json({ data: { exists: true, menu: menuText } });
   } catch (error) {
     logger.error(`Error in getRecentOrdersMenu: ${error}`);
-    return res.status(500).json({ message: "Error fetching orders" });
+    return res.status(500).json({ data: { exists: false, menu: "Error fetching orders" } });
   }
 };
 
