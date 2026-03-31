@@ -828,11 +828,10 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
   }
 };
 
-// 2. Process the selection by looking up the User's linked orders
 export const selectRepeatOrder = async (req: Request, res: Response) => {
   try {
     const { phone, selection } = req.body;
-    const cleanPhone = phone.replace(/\D/g, ""); // Normalize phone
+    const cleanPhone = phone.replace(/\D/g, "");
     const orderIndex = Number(selection) - 1;
 
     const userRecord = await database.query.users.findFirst({
@@ -851,12 +850,10 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
     const targetOrder = userOrders[orderIndex];
     if (!targetOrder) return res.status(status.NOT_FOUND).json({ message: "Pedido no encontrado" });
 
-    // --- NEW LOGIC: FIND THE BRANCH NUMBER ---
     const allBranches = await database.query.branch.findMany({
       orderBy: (b, { asc }) => [asc(b.name)],
     });
     
-    // Find the 1-based index of the branch from the original order
     const branchNumber = allBranches.findIndex(b => b.id === targetOrder.branchId) + 1;
 
     // --- RECONSTRUCT itemCart ---
@@ -880,9 +877,12 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
       }
     }
 
+    console.log("itemCart", cartParts.join(", "));
+    console.log("branchNumber", branchNumber);
+
     return res.status(status.OK).json({
       itemCart: cartParts.join(", "),
-      branchNumber: branchNumber.toString(), // RETURN THIS TO WATI
+      branchNumber: branchNumber.toString(),
       summary: targetOrder.orderItems.map(oi => `• ${oi.productName} x${oi.quantity}`).join("\n")
     });
   } catch (error) {
