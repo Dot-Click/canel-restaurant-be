@@ -786,7 +786,6 @@ export const extractLocation = async (req: Request, res: Response) => {
 
 export const getRecentOrdersMenu = async (req: Request, res: Response) => {
   try {
-    // const { phone } = req.params;
     const cleanPhone = normalizePhone(req.params.phone);
 
     const userRecord = await database.query.users.findFirst({
@@ -800,7 +799,6 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
       });
     }
 
-    // B) Fetch last 3 orders specifically linked to this User's ID
     const lastOrders = await database.query.orders.findMany({
       where: eq(orders.userId, userRecord.id),
       orderBy: [desc(orders.createdAt)],
@@ -821,10 +819,13 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
       menuText += `${i + 1}. Pedido del ${order.createdAt?.toLocaleDateString()}: ${itemsText}...\n`;
     });
 
-    return res.status(200).json({ data: { exists: true, menu: menuText } });
+    return res.status(200).json({ 
+        exists: true, 
+        menu: menuText 
+    });
   } catch (error) {
     logger.error(`Error in getRecentOrdersMenu: ${error}`);
-    return res.status(500).json({ data: { exists: false, menu: "Error fetching orders" } });
+    return res.status(500).json({ exists: false, menu: "Error fetching orders" });
   }
 };
 
@@ -832,14 +833,14 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
 export const selectRepeatOrder = async (req: Request, res: Response) => {
   try {
     const { phone, selection } = req.body;
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = normalizePhone(phone);
     const orderIndex = Number(selection) - 1;
 
     const userRecord = await database.query.users.findFirst({
       where: eq(users.phoneNumber, cleanPhone),
     });
 
-    if (!userRecord) return res.status(status.NOT_FOUND).json({ message: "Usuario no encontrado" });
+    if (!userRecord) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const userOrders = await database.query.orders.findMany({
       where: eq(orders.userId, userRecord.id),
@@ -849,7 +850,7 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
     });
 
     const targetOrder = userOrders[orderIndex];
-    if (!targetOrder) return res.status(status.NOT_FOUND).json({ message: "Pedido no encontrado" });
+    if (!targetOrder) return res.status(404).json({ message: "Pedido no encontrado" });
 
     const allBranches = await database.query.branch.findMany({
       orderBy: (b, { asc }) => [asc(b.name)],
@@ -857,10 +858,8 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
     
     const branchNumber = allBranches.findIndex(b => b.id === targetOrder.branchId) + 1;
 
-    // --- RECONSTRUCT itemCart ---
     const cartParts: string[] = [];
     for (const item of targetOrder.orderItems) {
-      // 1. Find the link between the product and its category
       const productLink = await database.query.productCategories.findFirst({
         where: eq(productCategories.productId, item.productId!),
         with: { category: true }
@@ -869,13 +868,13 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
       if (productLink && productLink.category) {
         const categoryId = productLink.categoryId;
 
-        // 2. Get all product IDs that belong to this category
+        // Get IDs in category
         const allLinksInCategory = await database.query.productCategories.findMany({
             where: eq(productCategories.categoryId, categoryId)
         });
         const productIdsInCat = allLinksInCategory.map(l => l.productId);
 
-        // 3. Find the products in this category available for THIS branch (or global NULL)
+        // Fetch products matching original branch or NULL
         const availableInBranch = await database.query.products.findMany({
           where: and(
             inArray(products.id, productIdsInCat),
@@ -884,10 +883,9 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
               isNull(products.branchId)
             )
           ),
-          orderBy: [products.name]
+          orderBy: [products.name] // THIS MUST MATCH getMenuForWati SORTING
         });
 
-        // 4. Find the correct 1-based index
         const index = availableInBranch.findIndex(p => p.id === item.productId) + 1;
 
         if (index > 0) {
@@ -896,13 +894,8 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
       }
     }
 
-    const finalCart = cartParts.join(", ");
-    console.log("cartParts", cartParts);
-    console.log("Reconstructed itemCart:", finalCart);
-    console.log("Calculated branchNumber:", branchNumber);
-
     return res.status(status.OK).json({
-      itemCart: finalCart,
+      itemCart: cartParts.join(", "),
       branchNumber: branchNumber.toString(),
       summary: targetOrder.orderItems.map(oi => `• ${oi.productName} x${oi.quantity}`).join("\n")
     });
