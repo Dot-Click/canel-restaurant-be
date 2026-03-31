@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { database } from "@/configs/connection.config";
 import { logger } from "@/utils/logger.util";
 import { orderItems, orders, productCategories, products, users } from "@/schema/schema";
@@ -828,6 +828,7 @@ export const getRecentOrdersMenu = async (req: Request, res: Response) => {
   }
 };
 
+
 export const selectRepeatOrder = async (req: Request, res: Response) => {
   try {
     const { phone, selection } = req.body;
@@ -859,29 +860,49 @@ export const selectRepeatOrder = async (req: Request, res: Response) => {
     // --- RECONSTRUCT itemCart ---
     const cartParts: string[] = [];
     for (const item of targetOrder.orderItems) {
-      const productMap = await database.query.productCategories.findFirst({
+      // 1. Find the link between the product and its category
+      const productLink = await database.query.productCategories.findFirst({
         where: eq(productCategories.productId, item.productId!),
         with: { category: true }
       });
 
-      if (productMap) {
-        const allInCat = await database.query.products.findMany({
-          where: eq(products.branchId, targetOrder.branchId as string),
+      if (productLink && productLink.category) {
+        const categoryId = productLink.categoryId;
+
+        // 2. Get all product IDs that belong to this category
+        const allLinksInCategory = await database.query.productCategories.findMany({
+            where: eq(productCategories.categoryId, categoryId)
+        });
+        const productIdsInCat = allLinksInCategory.map(l => l.productId);
+
+        // 3. Find the products in this category available for THIS branch (or global NULL)
+        const availableInBranch = await database.query.products.findMany({
+          where: and(
+            inArray(products.id, productIdsInCat),
+            or(
+              eq(products.branchId, targetOrder.branchId as string),
+              isNull(products.branchId)
+            )
+          ),
           orderBy: [products.name]
         });
-        const index = allInCat.findIndex(p => p.id === item.productId) + 1;
+
+        // 4. Find the correct 1-based index
+        const index = availableInBranch.findIndex(p => p.id === item.productId) + 1;
 
         if (index > 0) {
-          cartParts.push(`${productMap.category.name}:${index}:${item.quantity}`);
+          cartParts.push(`${productLink.category.name}:${index}:${item.quantity}`);
         }
       }
     }
 
-    console.log("itemCart", cartParts.join(", "));
-    console.log("branchNumber", branchNumber);
+    const finalCart = cartParts.join(", ");
+    console.log("cartParts", cartParts);
+    console.log("Reconstructed itemCart:", finalCart);
+    console.log("Calculated branchNumber:", branchNumber);
 
     return res.status(status.OK).json({
-      itemCart: cartParts.join(", "),
+      itemCart: finalCart,
       branchNumber: branchNumber.toString(),
       summary: targetOrder.orderItems.map(oi => `• ${oi.productName} x${oi.quantity}`).join("\n")
     });
