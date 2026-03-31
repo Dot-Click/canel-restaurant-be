@@ -253,3 +253,20 @@ export async function downloadWatiMedia(fileName: string): Promise<Buffer> {
 
   return Buffer.from(res.data);
 }
+
+export const statusTranslations: Record<string, string> = {
+  pending: "Pendiente",
+  confirmed: "Confirmado",
+  accepted_by_rider: "Aceptado por el repartidor",
+  on_the_way: "En camino",
+  out_for_delivery: "En camino",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+  preparing: "Preparando",
+  ready: "Listo",
+};
+
+export const getSpanishStatus = (status: string | null | undefined): string => {
+  if (!status) return "Actualizado";
+  return statusTranslations[status.toLowerCase()] || status;
+};

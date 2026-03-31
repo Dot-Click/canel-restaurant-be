@@ -21,7 +21,7 @@ import crypto from "crypto";
 import { orderPlacementTemplate, orderUpdateTemplate } from "@/utils/brevo";
 import { mailgunClient } from "@/configs/mailgun.config";
 import { env } from "@/utils/env.utils";
-import { sendWatiTemplateMessage } from "@/utils/watiService";
+import { getSpanishStatus, sendWatiTemplateMessage } from "@/utils/watiService";
 
 export const insertController = async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -256,7 +256,7 @@ export const insertController = async (req: Request, res: Response) => {
         recipientPhoneNumber: sanitizedPhone,
         templateName: "notification",
         parameters: [
-          { name: "1", value: insertedOrder.name || "Customer" },
+          { name: "1", value: insertedOrder.name || "Cliente" },
           { name: "2", value: insertedOrder.id.substring(0, 8) },
           { name: "3", value: productSummary },
           { name: "4", value: totalAmount.toFixed(2) },
@@ -488,9 +488,9 @@ export const updateController = async (req: Request, res: Response) => {
           recipientPhoneNumber: sanitizedPhone,
           templateName: "update_order",
           parameters: [
-            { name: "1", value: newOrder.name || "Customer" },
+            { name: "1", value: newOrder.name || "Cliente" },
             { name: "2", value: newOrder.id.substring(0, 8) },
-            { name: "3", value: newOrder.status || "Actualizado" },
+            { name: "3", value: getSpanishStatus(newOrder.status) },
           ],
         }).catch((err) => {
           logger.error("Failed to send WhatsApp status update via WATI:", err);
@@ -976,11 +976,11 @@ export const updateStatusOrderController = async (
           sendWatiTemplateMessage({
             recipientPhoneNumber: sanitizedPhone,
             templateName: "update_order",
-            parameters: [
-              { name: "1", value: updatedOrder.name || "Customer" },
-              { name: "2", value: updatedOrder.id.substring(0, 8) },
-              { name: "3", value: "Aceptado por el repartidor" },
-            ],
+              parameters: [
+                { name: "1", value: updatedOrder.name || "Cliente" },
+                { name: "2", value: updatedOrder.id.substring(0, 8) },
+                { name: "3", value: getSpanishStatus(updatedOrder.status) },
+              ],
           }).catch((err) => {
             logger.error("Failed to send WhatsApp status update via WATI:", err);
           });
@@ -1014,11 +1014,11 @@ export const updateStatusOrderController = async (
           sendWatiTemplateMessage({
             recipientPhoneNumber: sanitizedPhone,
             templateName: "update_order",
-            parameters: [
-              { name: "1", value: deliveredOrder.name || "Customer" },
-              { name: "2", value: deliveredOrder.id.substring(0, 8) },
-              { name: "3", value: "Entregado" },
-            ],
+              parameters: [
+                { name: "1", value: deliveredOrder.name || "Cliente" },
+                { name: "2", value: deliveredOrder.id.substring(0, 8) },
+                { name: "3", value: getSpanishStatus(deliveredOrder.status) },
+              ],
           }).catch((err) => {
             logger.error("Failed to send WhatsApp status update via WATI:", err);
           });
