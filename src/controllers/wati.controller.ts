@@ -157,7 +157,11 @@ export const placeOrderForWati = async (req: Request, res: Response) => {
     } = req.body;
 
     const rawType = req.body.type as string;
-    const type = rawType?.toLowerCase() as "delivery" | "pickup";
+    let type = rawType?.toLowerCase() as "delivery" | "pickup";
+
+    if (type !== "delivery" && type !== "pickup" && location) {
+      type = "delivery";
+    }
 
     if (
       !branchNumber ||
@@ -406,7 +410,11 @@ export const calculateCartPriceForWati = async (
     };
 
     const rawType = req.body.type as string;
-    const type = rawType?.toLowerCase() as "delivery" | "pickup";
+    let type = rawType?.toLowerCase() as "delivery" | "pickup";
+
+    if (type !== "delivery" && type !== "pickup" && location) {
+      type = "delivery";
+    }
 
     if (!branchNumber || !itemCart || !type) {
       return res.status(status.BAD_REQUEST).json({
